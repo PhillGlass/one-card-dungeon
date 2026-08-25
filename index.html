@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>One Card Dungeon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cinzel+Decorative:wght@700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div class="card" id="authScreen">
+  <header>
+    <div class="splash-icon-top">⚔️</div>
+    <h1 class="splash-title">ONE CARD<br>DUNGEON</h1>
+    <div class="sub" id="authTitle">Accedi</div>
+  </header>
+  <form class="auth-form" id="authForm" data-mode="login">
+    <div class="auth-error hidden" id="authError"></div>
+    <div class="auth-info hidden" id="authInfo"></div>
+    <div>
+      <label for="authEmail">Email</label>
+      <input type="email" id="authEmail" required autocomplete="email">
+    </div>
+    <div>
+      <label for="authPassword">Password</label>
+      <input type="password" id="authPassword" required autocomplete="current-password" minlength="6">
+    </div>
+    <button type="submit" class="btn" id="authSubmitBtn">Accedi</button>
+    <div class="auth-switch" id="authSwitchText"></div>
+  </form>
+</div>
+
+<!-- ============ LOADING SCREEN ============ -->
+<div class="card hidden" id="loadingScreen">
+  <div class="loading-wrap">Caricamento partita…</div>
+</div>
+
+<!-- ============ SPLASH SCREEN ============ -->
+<div class="card hidden" id="splashScreen">
+  <header>
+    <div class="splash-icon-top">⚔️</div>
+    <h1 class="splash-title">ONE CARD<br>DUNGEON</h1>
+    <div class="sub">Solo Dungeon Crawl</div>
+  </header>
+  <div class="splash-hero-icon">🧙</div>
+  <div class="splash-body">
+    <button class="btn hidden" id="continueBtn2">▶ Continua</button>
+    <button class="btn secondary" id="newGameBtn">🆕 Nuova Partita</button>
+    <div class="record-line hidden" id="recordBox">🏆 Miglior livello raggiunto: <span id="recordVal"></span></div>
+  </div>
+  <div class="splash-bottom">
+    <button class="btn ghost" id="resetBtn">Reset</button>
+    <button class="btn ghost logout-btn" id="logoutBtn">Esci</button>
+    <div class="user-email-line" id="userEmailLine"></div>
+    <div class="splash-footer">
+      Adattamento non ufficiale ispirato a "One Card Dungeon" di Barny Skinner / Little Rocket Games<br>
+      <span class="ver">v 0.2</span>
+    </div>
+  </div>
+</div>
+
+<div class="card hidden" id="gameScreen">
+  <header>
+    <button class="home-btn" id="homeBtn" title="Torna al menu">🏠</button>
+    <div class="sub">Solo Dungeon Crawl</div>
+    <h1>⚔ One Card Dungeon</h1>
+    <div class="level-banner" id="levelBanner">Livello 1 di 12</div>
+  </header>
+
+  <div class="stats" id="statsRow"></div>
+
+  <div class="tray">
+    <div class="tray-label" id="trayLabel">Fase Energia — Lancia i dadi</div>
+    <div class="dice-row" id="diceRow"></div>
+    <div class="assign-targets" id="assignRow"></div>
+  </div>
+
+  <div class="mapwrap"><div class="grid" id="grid"></div><div id="fxLayer"></div></div>
+
+  <div class="inspect" id="inspect"></div>
+
+  <div class="actionbar">
+    <button class="btn" id="rollBtn">🎲 Lancia i Dadi (Energia)</button>
+    <button class="btn secondary hidden" id="endTurnBtn">Fine Turno →</button>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="modalBg"><div class="modal" id="modalContent"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="app.js"></script>
+<script src="cloud.js"></script>
+</body>
+</html>
