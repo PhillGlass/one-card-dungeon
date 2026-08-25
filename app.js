@@ -540,22 +540,34 @@ async function monsterMovementPhase(){
       const rangeFromAdv = advReach.dist[k];
       if(rangeFromAdv===undefined) continue;
       const los = hasLoS(x,y,state.player.x,state.player.y, state.walls);
-      candidates.push({x,y,rangeFromAdv,los,moveCost:mReach.dist[k]});
+      const moveCost = mReach.dist[k];
+      // "reachable" = il mostro ha abbastanza Velocità per arrivarci in QUESTO
+      // turno (non solo teoricamente raggiungibile ignorando il budget).
+      candidates.push({x,y,rangeFromAdv,los,moveCost,reachable: moveCost<=m.speed});
     }
 
     let target=null;
-    const inRangeLos = candidates.filter(c=>c.rangeFromAdv<=m.range && c.los);
-    if(inRangeLos.length){
-      inRangeLos.sort((a,b)=> b.rangeFromAdv-a.rangeFromAdv || a.moveCost-b.moveCost);
-      target = inRangeLos[0];
+    // Priorità 1: tra le caselle raggiungibili in questo turno, quelle da cui
+    // il mostro può ATTACCARE (Gittata + Linea di Vista). Priorità 2, solo
+    // come criterio di scelta TRA queste: la più distante dal personaggio.
+    // Così "stare lontano" non può più far rinunciare a un attacco possibile.
+    const attackableNow = candidates.filter(c=>c.reachable && c.rangeFromAdv<=m.range && c.los);
+    if(attackableNow.length){
+      attackableNow.sort((a,b)=> b.rangeFromAdv-a.rangeFromAdv || a.moveCost-b.moveCost);
+      target = attackableNow[0];
     } else {
-      const anyLos = candidates.filter(c=>c.los);
+      // Nessuna posizione d'attacco raggiungibile questo turno: si avvicina il
+      // più possibile verso una buona posizione (prima Linea di Vista, poi
+      // Gittata più bassa), preferendo sempre restare entro il proprio budget.
+      const reachableCandidates = candidates.filter(c=>c.reachable);
+      const pool = reachableCandidates.length ? reachableCandidates : candidates;
+      const anyLos = pool.filter(c=>c.los);
       if(anyLos.length){
         anyLos.sort((a,b)=> a.rangeFromAdv-b.rangeFromAdv || a.moveCost-b.moveCost);
         target = anyLos[0];
-      } else if(candidates.length){
-        candidates.sort((a,b)=> a.rangeFromAdv-b.rangeFromAdv || a.moveCost-b.moveCost);
-        target = candidates[0];
+      } else if(pool.length){
+        pool.sort((a,b)=> a.rangeFromAdv-b.rangeFromAdv || a.moveCost-b.moveCost);
+        target = pool[0];
       }
     }
 
