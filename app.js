@@ -289,6 +289,18 @@ function playerLoSTo(mx,my){
   return hasLoS(state.player.x, state.player.y, mx, my, blocking);
 }
 
+// Linea di Vista è una proprietà geometrica simmetrica: i muri E le caselle
+// occupate da ALTRI mostri bloccano la visuale in entrambe le direzioni.
+// Questo helper calcola i bloccanti dal punto di vista di un mostro specifico
+// (escludendo se stesso, ovviamente).
+function monsterLosBlockers(excludeMonster){
+  const blocking = [...state.walls];
+  for(const o of state.monsters){
+    if(o!==excludeMonster && o.alive) blocking.push([o.x,o.y]);
+  }
+  return blocking;
+}
+
 /* ============================================================
    ANIMATION HELPERS
    ============================================================ */
@@ -532,6 +544,11 @@ async function monsterMovementPhase(){
     const stopBlocked = new Set(travBlocked);
     for(const o of state.monsters) if(o!==m && o.alive) stopBlocked.add(key(o.x,o.y));
 
+    // Bloccanti per la Linea di Vista di QUESTO mostro: muri + posizione
+    // attuale degli altri mostri vivi (chi si è già mosso conta con la nuova
+    // posizione, chi deve ancora muoversi con quella vecchia).
+    const losBlockers = monsterLosBlockers(m);
+
     const candidates=[];
     for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
       const k=key(x,y);
@@ -539,7 +556,7 @@ async function monsterMovementPhase(){
       if(mReach.dist[k]===undefined) continue;
       const rangeFromAdv = advReach.dist[k];
       if(rangeFromAdv===undefined) continue;
-      const los = hasLoS(x,y,state.player.x,state.player.y, state.walls);
+      const los = hasLoS(x,y,state.player.x,state.player.y, losBlockers);
       const moveCost = mReach.dist[k];
       // "reachable" = il mostro ha abbastanza Velocità per arrivarci in QUESTO
       // turno (non solo teoricamente raggiungibile ignorando il budget).
@@ -604,7 +621,7 @@ async function monsterAttackPhase(){
     if(!m.alive) continue;
     const dist = playerRangeTo(m.x,m.y);
     const inRange = dist!==undefined && dist<=m.range;
-    const los = hasLoS(m.x,m.y,state.player.x,state.player.y, state.walls);
+    const los = hasLoS(m.x,m.y,state.player.x,state.player.y, monsterLosBlockers(m));
     if(inRange && los){ totalAtk+=m.atk; attackers.push(m); }
   }
 
