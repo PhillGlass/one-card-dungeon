@@ -187,11 +187,3 @@
   border-color:#8a6a1e;
 }
 .die.loot-die.selected{ outline:3px solid var(--gold-bright); transform:translateY(-3px); }
-
-/* Bottone di conferma "fine Bottino, vai alla Fase Azione": piccola freccia
-   sulla stessa riga dei dadi, spinta a destra, alta quanto un dado. */
-.assign-btn.confirm-btn{
-  background:var(--gold); color:#221a12; border-color:#fff3d0;
-  margin-left:auto; width:36px; height:44px; padding:0; font-size:1.1rem;
-  display:flex; align-items:center; justify-content:center;
-}

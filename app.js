@@ -675,10 +675,10 @@ function assignTo(stat){
 
 // Passa alla Fase Azione SOLO se tutti e tre i dadi standard sono assegnati.
 // Se resta ancora Bottino spendibile (Dado Tesoro > 0), l'avanzamento
-// automatico si blocca: serve una conferma esplicita del giocatore (bottone
-// "Vai alla Fase Azione" nel tray), perché potrebbe voler pompare ancora
-// un'ultima volta una caratteristica prima di agire. force=true bypassa
-// questa attesa (usato dal bottone di conferma stesso).
+// automatico si blocca: serve una conferma esplicita del giocatore (il
+// bottone verde in basso diventa "Continua →" invece di "Fine Turno →"),
+// perché potrebbe voler pompare ancora un'ultima volta una caratteristica
+// prima di agire. force=true bypassa questa attesa (usato dal bottone stesso).
 function maybeAdvanceToAct(force){
   if(!state.dice.length || !state.dice.every(d=>d.target)) return;
   if(!force && state.loot>0) return;
@@ -1216,18 +1216,8 @@ function renderDice(){
       b.onclick=toggleKnightMode;
       assignRow.appendChild(b);
     }
-    // Bottino esaurito (o tutti i dadi assegnati senza Bottino residuo): si
-    // avanza già in automatico. Se invece resta Bottino, serve la conferma —
-    // una piccola freccia sulla STESSA riga dei dadi (non una riga a parte),
-    // per non occupare spazio verticale nel tray.
-    if(state.dice.every(d=>d.target) && state.loot>0){
-      const b=document.createElement('button');
-      b.className='assign-btn confirm-btn';
-      b.textContent='➡';
-      b.title='Fine Bottino — vai alla Fase Azione';
-      b.onclick=confirmEnergyDone;
-      row.appendChild(b);
-    }
+    // La conferma per proseguire con il Bottino ancora disponibile si fa ora
+    // dal bottone verde in basso ("Continua →"), non più da qui.
   } else if(state.phase==='act'){
     label.textContent = `Velocità disp. ${totalStat('speed')-state.spent.speed} · Attacco disp. ${totalStat('atk')-state.spent.atk}`;
     // Negromante: una volta per Livello, −1 Salute per 1 danno che ignora la
@@ -1364,15 +1354,26 @@ function render(){
   renderInspect();
   const rollBtn = document.getElementById('rollBtn');
   const endTurnBtn = document.getElementById('endTurnBtn');
+  // Bottino ancora da spendere dopo aver assegnato i tre dadi standard: il
+  // bottone verde in basso resta lo stesso, ma con etichetta e azione diverse
+  // ("Continua →" per confermare che si passa alla Fase Azione), invece di
+  // un piccolo bottone separato nel tray.
+  const awaitingLootConfirm = state.phase==='assign' && state.dice.length>0 && state.dice.every(d=>d.target) && state.loot>0;
   rollBtn.classList.toggle('hidden', state.phase!=='roll');
-  endTurnBtn.classList.toggle('hidden', state.phase!=='act');
+  endTurnBtn.classList.toggle('hidden', state.phase!=='act' && !awaitingLootConfirm);
+  if(awaitingLootConfirm){
+    endTurnBtn.textContent = 'Continua →';
+    endTurnBtn.onclick = confirmEnergyDone;
+  } else {
+    endTurnBtn.textContent = 'Fine Turno →';
+    endTurnBtn.onclick = endTurn;
+  }
   rollBtn.disabled = state.animating;
   endTurnBtn.disabled = state.animating;
   writeSave();
 }
 
 document.getElementById('rollBtn').onclick = rollDice;
-document.getElementById('endTurnBtn').onclick = endTurn;
 
 /* ============================================================
    SPLASH SCREEN (menu iniziale + salvataggio in localStorage)
