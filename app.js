@@ -988,8 +988,8 @@ function showClassSelect(){
   const active = loadActiveExpansions();
   const visibleClasses = Object.entries(CLASSES).filter(([id,c])=> !c.expansion || active[c.expansion]);
   m.innerHTML = `
+    <button class="modal-close" id="classCloseBtn" aria-label="Chiudi">✕</button>
     <h2>⚔ Scegli il tuo Eroe</h2>
-    <p style="font-size:.8rem;">Variante "Classi" del regolamento ufficiale — ogni classe parte con le statistiche base (Velocità 1, Attacco 1, Difesa 1, Gittata 2, Salute 6) più un'abilità unica.</p>
     <div id="classList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
   `;
   const list = m.querySelector('#classList');
@@ -1001,6 +1001,7 @@ function showClassSelect(){
     b.onclick = ()=>{ bg.classList.add('hidden'); startRun(id); showGame(); };
     list.appendChild(b);
   });
+  m.querySelector('#classCloseBtn').onclick = ()=>{ bg.classList.add('hidden'); };
   bg.classList.remove('hidden');
 }
 

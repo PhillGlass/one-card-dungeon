@@ -22,7 +22,7 @@
   }
   .card::before{ content:""; position:absolute; inset:6px; border:1px solid rgba(201,162,75,.35); border-radius:9px; pointer-events:none; }
   header{ text-align:center; margin-bottom:6px; }
-  h1{ font-family:'Cinzel Decorative', serif; font-size:1.4rem; margin:2px 0 0; color:var(--gold-bright); letter-spacing:.03em; text-shadow:0 2px 0 #000; }
+  h1{ font-family:'Cinzel Decorative', serif; font-size:1.2rem; margin:2px 0 0; color:var(--gold-bright); letter-spacing:.03em; text-shadow:0 2px 0 #000; }
   .sub{ font-family:'Cinzel', serif; font-size:.68rem; letter-spacing:.16em; color:var(--parchment-dim); text-transform:uppercase; padding-top: 16px; }
   .level-banner{ margin-top:6px; font-family:'Cinzel', serif; font-size:.8rem; letter-spacing:.06em; color:var(--ember); text-align:center; text-transform:uppercase; }
 
@@ -101,7 +101,9 @@
 
   .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
   .modal{ background:linear-gradient(180deg,var(--stone),#1a130f); border:3px solid var(--gold); border-radius:14px; padding:18px; max-width:380px; width:100%; text-align:center;
-    max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; }
+  .modal-close{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--gold);
+    background:var(--stone-2); color:var(--parchment); font-size:.95rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .modal h2{ font-family:'Cinzel Decorative',serif; color:var(--gold-bright); margin-top:0;}
   .modal p{ font-size:.88rem; line-height:1.5; }
   .choice-row{ display:flex; gap:8px; margin:12px 0; }
@@ -169,6 +171,9 @@
    ancora attaccabile, il bordo resta oro come promemoria della selezione. */
 .cell.chest{ background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); }
 .cell.chest.attackable{ box-shadow:inset 0 0 0 2px var(--green-bright); background:#243a22; }
+/* Selezionata: l'oro prevale sul verde (stessa priorità dei mostri, dove il
+   bordo oro della selezione vince su quello rosso di "attaccabile"). */
+.cell.chest.selected-monster{ box-shadow:inset 0 0 0 2px var(--gold-bright); }
 .cell.chest .chest-badge{
   position:absolute; bottom:1px; right:1px; background:rgba(0,0,0,.75); color:var(--gold-bright);
   font-size:.7rem; font-family:'Cinzel',serif; font-weight:700; padding:1px 3px; border-radius:5px; line-height:1.2;
