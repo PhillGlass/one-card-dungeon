@@ -1164,7 +1164,7 @@ function renderDice(){
     }
   } else if(state.phase==='assign'){
     label.textContent = state.selectedDie===null && !state.lootDieActive
-      ? 'Tocca un dado, poi la caratteristica evidenziata in alto'
+      ? 'Tocca un dado, poi la caratteristica evidenziata'
       : 'Ora tocca la caratteristica in alto a cui assegnarlo';
     state.dice.forEach((d,i)=>{
       const el=document.createElement('div');
