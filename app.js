@@ -245,7 +245,7 @@ function startRun(cls){
     walls: [],
     entryStair: {x:0,y:0}, exitStair: {x:GRID-1,y:GRID-1},
     monsters: [],
-    chest: null, loot: 0, lootUsedStat: null,
+    chest: null, loot: 0, lootUsedStat: null, lootDieActive: false,
     knightMode: false, clericBoostUsed: false,
     selectedDie: null, selectedMonster: null, selectedChest: null,
     prevDice: [],
@@ -364,7 +364,7 @@ function spawnLevel(lvl){
   state.prevDice = [];
   state.abilityUsed = { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false };
   state.barbarianUsedThisTurn = false;
-  state.lootUsedStat = null; state.knightMode = false; state.clericBoostUsed = false;
+  state.lootUsedStat = null; state.lootDieActive = false; state.knightMode = false; state.clericBoostUsed = false;
   render();
 }
 
@@ -588,7 +588,36 @@ function thiefBoost(){
 function selectDie(i){
   if(state.phase!=='assign' || state.animating) return;
   if(state.dice[i].target) return;
+  state.lootDieActive = false; // selezionare un dado normale esce dalla modalità Dado Tesoro
   state.selectedDie = (state.selectedDie===i)?null:i;
+  render();
+}
+
+// Dado Tesoro (Cassa del Tesoro, espansione "M'Guf-yn Returns"): si comporta
+// come un 4° dado giallo. Un click lo attiva/disattiva; mentre è attivo, ogni
+// click su UNA caratteristica aggiunge 1 punto e toglie 1 al suo valore —
+// niente limite ai click, si può "pompare" la stessa caratteristica finché il
+// dado non si esaurisce. Selezionare un dado normale lo disattiva.
+function toggleLootDie(){
+  if(state.animating) return;
+  if(!(state.phase==='roll' || state.phase==='assign')) return;
+  if(!state.loot || state.loot<=0) return;
+  state.lootDieActive = !state.lootDieActive;
+  if(state.lootDieActive) state.selectedDie = null; // esce dalla selezione di un dado normale
+  render();
+}
+
+function incrementLoot(stat){
+  if(state.animating) return;
+  if(!(state.phase==='roll' || state.phase==='assign')) return;
+  if(!state.lootDieActive || !state.loot || state.loot<=0) return;
+  if(state.lootUsedStat && state.lootUsedStat!==stat) return; // un solo valore per turno
+  state.points[stat] = (state.points[stat]||0) + 1;
+  state.loot -= 1;
+  state.lootUsedStat = stat;
+  log(`💰 Dado Tesoro: +1 a ${stat} (restano ${state.loot} punti Bottino).`);
+  if(state.loot<=0) state.lootDieActive = false; // esaurito: esce da solo dalla modalità
+  maybeAdvanceToAct(false);
   render();
 }
 
@@ -640,11 +669,27 @@ function assignTo(stat){
     state.knightMode = false;
     log(`🐴 Abilità Cavaliere: secondo dado (${d.value}) sommato sulla stessa caratteristica.`);
   }
-  if(state.dice.every(d=>d.target)){
-    state.phase='act';
-    state.prevDice = state.dice.map(d=>d.value);
-    log(`Energia assegnata — Velocità ${totalStat('speed')}, Attacco ${totalStat('atk')}, Difesa ${totalStat('def')}${state.points.range?`, Gittata +${state.points.range}`:''}`);
-  }
+  maybeAdvanceToAct(false);
+  render();
+}
+
+// Passa alla Fase Azione SOLO se tutti e tre i dadi standard sono assegnati.
+// Se resta ancora Bottino spendibile (Dado Tesoro > 0), l'avanzamento
+// automatico si blocca: serve una conferma esplicita del giocatore (bottone
+// "Vai alla Fase Azione" nel tray), perché potrebbe voler pompare ancora
+// un'ultima volta una caratteristica prima di agire. force=true bypassa
+// questa attesa (usato dal bottone di conferma stesso).
+function maybeAdvanceToAct(force){
+  if(!state.dice.length || !state.dice.every(d=>d.target)) return;
+  if(!force && state.loot>0) return;
+  if(state.phase==='act') return;
+  state.phase='act';
+  state.prevDice = state.dice.map(d=>d.value);
+  log(`Energia assegnata — Velocità ${totalStat('speed')}, Attacco ${totalStat('atk')}, Difesa ${totalStat('def')}${state.points.range?`, Gittata +${state.points.range}`:''}`);
+}
+function confirmEnergyDone(){
+  if(state.animating) return;
+  maybeAdvanceToAct(true);
   render();
 }
 
@@ -717,7 +762,8 @@ function attackSelected(){
 
 // Cassa del Tesoro: si apre come un mostro (Gittata + Linea di Vista),
 // spendendo Attacco pari al valore del dado tesoro. Il bottino ottenuto si
-// aggiunge a quello disponibile per il resto del livello (vedi spendLoot()).
+// aggiunge a quello disponibile per il resto del livello (si spende poi
+// tramite il Dado Tesoro, vedi toggleLootDie()/incrementLoot()).
 function openChest(){
   if(state.animating) return;
   if(!state.chest || state.chest.opened) return;
@@ -729,23 +775,6 @@ function openChest(){
   spawnFloatText(state.chest.x, state.chest.y, `+${state.chest.roll}💰`, 'loot');
   log(`🎁 Apri la Cassa del Tesoro (−${state.chest.roll}⚡ Attacco): ottieni ${state.chest.roll} punti Bottino.`);
   state.selectedChest = false;
-  render();
-}
-
-// Bottino: spendibile durante la Fase Energia su UNA sola caratteristica per
-// turno (tutto in una volta o parzialmente); si sottrae dal totale disponibile.
-function spendLoot(stat, amount){
-  if(state.animating) return;
-  if(state.phase==='act') return; // solo durante la Fase Energia (roll/assign)
-  if(!state.loot || state.loot<=0) return;
-  if(state.lootUsedStat && state.lootUsedStat!==stat) return;
-  amount = Math.floor(Number(amount)) || 0;
-  amount = Math.max(1, Math.min(amount, state.loot));
-  if(amount<=0) return;
-  state.points[stat] = (state.points[stat]||0) + amount;
-  state.loot -= amount;
-  state.lootUsedStat = stat;
-  log(`💰 Spendi ${amount} punti Bottino su ${stat}.`);
   render();
 }
 
@@ -923,6 +952,7 @@ async function endTurn(){
   state.animating = false;
   state.dice=[]; state.points={speed:0,atk:0,def:0,range:0}; state.spent={speed:0,atk:0};
   state.selectedMonster=null; state.selectedChest=null; state.phase='roll';
+  state.lootUsedStat = null; state.lootDieActive = false;
 
   if(state.hp<=0){ render(); showGameOver(); return; }
   if(state.monsters.every(m=>!m.alive)){ render(); onLevelClear(); return; }
@@ -1077,12 +1107,17 @@ function renderStats(){
   // Cavaliere: con l'abilità "armata", una caratteristica già assegnata resta
   // comunque bersagliabile per il secondo dado (una sola volta per Livello).
   const knightAvail = state.knightMode && !state.abilityUsed.knight;
+  // Dado Tesoro attivo: ogni caratteristica non ancora "bloccata" su un'altra
+  // (regola: un solo valore per turno) diventa bersagliabile, SENZA i vincoli
+  // del Ranger — il Bottino può andare su una qualsiasi delle quattro.
+  const lootActive = !!state.lootDieActive && (state.phase==='roll'||state.phase==='assign') && !state.animating && state.loot>0;
+  const lootFree = (s)=> !state.lootUsedStat || state.lootUsedStat===s;
 
   const targetable = {
-    speed: canAssign && (!speedTaken || knightAvail) && !rangeTaken,
-    atk:   canAssign && (!atkTaken || knightAvail),
-    def:   canAssign && (!defTaken || knightAvail),
-    range: canAssign && rangerAvail && !rangeTaken && !speedTaken,
+    speed: (canAssign && (!speedTaken || knightAvail) && !rangeTaken) || (lootActive && lootFree('speed')),
+    atk:   (canAssign && (!atkTaken || knightAvail)) || (lootActive && lootFree('atk')),
+    def:   (canAssign && (!defTaken || knightAvail)) || (lootActive && lootFree('def')),
+    range: (canAssign && rangerAvail && !rangeTaken && !speedTaken) || (lootActive && lootFree('range')),
   };
 
   function statBox(id,label,val,bonus){
@@ -1102,7 +1137,7 @@ function renderStats(){
 
   row.querySelectorAll('.stat[data-stat]').forEach(el=>{
     const st = el.dataset.stat;
-    if(targetable[st]) el.onclick = ()=>assignTo(st);
+    if(targetable[st]) el.onclick = ()=> (state.lootDieActive ? incrementLoot(st) : assignTo(st));
   });
 }
 
@@ -1128,7 +1163,7 @@ function renderDice(){
       assignRow.appendChild(wrap);
     }
   } else if(state.phase==='assign'){
-    label.textContent = state.selectedDie===null
+    label.textContent = state.selectedDie===null && !state.lootDieActive
       ? 'Tocca un dado, poi la caratteristica evidenziata in alto'
       : 'Ora tocca la caratteristica in alto a cui assegnarlo';
     state.dice.forEach((d,i)=>{
@@ -1180,6 +1215,15 @@ function renderDice(){
       b.onclick=toggleKnightMode;
       assignRow.appendChild(b);
     }
+    // Bottino esaurito (o tutti i dadi assegnati senza Bottino residuo): si
+    // avanza già in automatico. Se invece resta Bottino, serve la conferma.
+    if(state.dice.every(d=>d.target) && state.loot>0){
+      const b=document.createElement('button');
+      b.className='assign-btn confirm-btn';
+      b.textContent='➡ Fine Bottino — Vai alla Fase Azione';
+      b.onclick=confirmEnergyDone;
+      assignRow.appendChild(b);
+    }
   } else if(state.phase==='act'){
     label.textContent = `Velocità disp. ${totalStat('speed')-state.spent.speed} · Attacco disp. ${totalStat('atk')-state.spent.atk}`;
     // Negromante: una volta per Livello, −1 Salute per 1 danno che ignora la
@@ -1193,54 +1237,21 @@ function renderDice(){
       assignRow.appendChild(b);
     }
   }
-  renderLoot();
+  renderLootDie(row);
 }
 
-// Bottino della Cassa del Tesoro: spendibile durante la Fase Energia
-// (roll/assign), tutto in una volta o parzialmente, su UNA sola
-// caratteristica per turno.
-function renderLoot(){
-  const lootRow = document.getElementById('lootRow');
-  if(!lootRow) return;
-  lootRow.innerHTML = '';
-  if(state.phase==='act' || !state.loot || state.loot<=0){ lootRow.classList.add('hidden'); return; }
-  lootRow.classList.remove('hidden');
-
-  const stats = [
-    {id:'speed', label:'🏃 Velocità'},
-    {id:'atk',   label:'⚔ Attacco'},
-    {id:'def',   label:'🛡 Difesa'},
-    {id:'range', label:'🎯 Gittata'},
-  ];
-  const locked = state.lootUsedStat;
-
-  const title = document.createElement('div');
-  title.className = 'loot-title';
-  title.textContent = `💰 Bottino disponibile: ${state.loot}`;
-  lootRow.appendChild(title);
-
-  const amountWrap = document.createElement('div');
-  amountWrap.className = 'loot-amount-wrap';
-  const amountInput = document.createElement('input');
-  amountInput.type = 'number';
-  amountInput.min = '1';
-  amountInput.max = String(state.loot);
-  amountInput.value = String(state.loot);
-  amountInput.className = 'loot-amount';
-  amountWrap.appendChild(amountInput);
-  lootRow.appendChild(amountWrap);
-
-  const btnRow = document.createElement('div');
-  btnRow.className = 'loot-btn-row';
-  stats.forEach(s=>{
-    const disabled = locked && locked!==s.id;
-    const b=document.createElement('button');
-    b.className='assign-btn loot-btn'+(disabled?' disabled':'');
-    b.textContent = s.label;
-    if(!disabled) b.onclick = ()=> spendLoot(s.id, amountInput.value);
-    btnRow.appendChild(b);
-  });
-  lootRow.appendChild(btnRow);
+// Dado Tesoro: appare come 4° dado, giallo, accanto ai tre standard, mostrando
+// il Bottino residuo. Disponibile durante tutta la Fase Energia (sia prima
+// che dopo il tiro dei tre dadi standard), mai durante la Fase Azione.
+function renderLootDie(row){
+  if(!state.loot || state.loot<=0) return;
+  if(state.phase!=='roll' && state.phase!=='assign') return;
+  const el=document.createElement('div');
+  el.className='die loot-die'+(state.lootDieActive?' selected':'');
+  el.textContent=state.loot;
+  el.title='Dado Tesoro';
+  el.onclick=toggleLootDie;
+  row.appendChild(el);
 }
 
 function renderGrid(){
