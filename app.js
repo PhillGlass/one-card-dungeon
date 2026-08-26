@@ -113,13 +113,43 @@ const MONSTER_TABLE = {
 };
 
 // Character classes from the official "Game Variant" section of the rulebook.
+// Le classi con "expansion" sono disponibili solo quando quella espansione è attiva.
 const CLASSES = {
   none:      { name:"Classico",  icon:"🗡️", desc:"Nessuna abilità speciale — il gioco base, senza varianti." },
   paladin:   { name:"Paladino",  icon:"🛡️", desc:"Una volta per Livello, puoi mantenere il valore di un dado Energia dal turno precedente invece di rilanciarlo." },
   barbarian: { name:"Barbaro",   icon:"🪓", desc:"Quando sei a 1 Salute, puoi rilanciare tutti i dadi Energia (una volta per turno, senza limite di livello)." },
   ranger:    { name:"Ranger",    icon:"🏹", desc:"Una volta per Livello, puoi assegnare un dado alla Gittata invece che alla Velocità." },
   wizard:    { name:"Mago",      icon:"🔮", desc:"Una volta per Livello, puoi rilanciare tutti e tre i dadi Energia." },
+  necromancer: { name:"Negromante", icon:"🧛", expansion:"mguf_yn_returns",
+    desc:"Una volta per Livello, durante l'Azione, puoi perdere 1 Salute per infliggere 1 danno (ignora la Difesa) a un nemico in Gittata e Linea di Vista." },
+  cleric: { name:"Chierico", icon:"✨", expansion:"mguf_yn_returns",
+    desc:"Ogni volta che i tre dadi Energia mostrano lo stesso valore, puoi aumentarli tutti di 2 (fino a un massimo di 6)." },
+  knight: { name:"Cavaliere", icon:"🐴", expansion:"mguf_yn_returns",
+    desc:"Una volta per Livello, puoi assegnare due dei tre dadi Energia alla stessa caratteristica (sommandoli); il terzo dado va su un'altra caratteristica." },
+  thief: { name:"Ladro", icon:"🗝️", expansion:"mguf_yn_returns",
+    desc:"Una volta per Livello, puoi aumentare di 1 il valore di tutti e tre i dadi Energia lanciati (nessun tetto massimo)." },
 };
+
+// Espansioni disponibili — attivabili/disattivabili dal bottone "Espansioni" in home.
+const EXPANSIONS = {
+  mguf_yn_returns: {
+    name: "M'Guf-yn Returns",
+    icon: "👑",
+    desc: "4 Boss dopo i livelli 3-6-9-12, la Cassa del Tesoro e 4 nuove classi (Negromante, Chierico, Cavaliere, Ladro).",
+  },
+};
+
+// Boss dell'espansione "M'Guf-yn Returns": compaiono subito dopo aver
+// sgominato i mostri del livello indicato (3, 6, 9, 12), prima di procedere
+// al livello successivo. "walls" = quante delle 8 celle adiacenti al centro
+// diventano Muro (posizione scelta a caso ad ogni run).
+const BOSS_TABLE = {
+  3:  { name:"Minotauro", icon:"🐂", hp:7,  speed:3, atk:7, def:4, range:3, walls:2 },
+  6:  { name:"Lich",      icon:"💀", hp:8,  speed:3, atk:6, def:5, range:5, walls:3 },
+  9:  { name:"Insettoide",icon:"🦂", hp:10, speed:6, atk:7, def:6, range:3, walls:2 },
+  12: { name:"M'Guf-yn",  icon:"🧞", hp:12, speed:6, atk:8, def:7, range:6, walls:3 },
+};
+const BOSS_LEVELS = new Set([3,6,9,12]);
 
 /* ============================================================
    STATE
@@ -132,7 +162,7 @@ let state = null;
    così tutte le funzioni sotto restano SINCRONE come prima;
    ogni scrittura viene poi spedita a Supabase in background.
    ------------------------------------------------------------ */
-window.__ocdCache = window.__ocdCache || { save: null, record: 0 };
+window.__ocdCache = window.__ocdCache || { save: null, records: {}, settings: { expansions: {} } };
 
 function loadSave(){
   return window.__ocdCache.save;
@@ -145,20 +175,51 @@ function clearSave(){
   window.__ocdCache.save = null;
   window.OCDCloud && window.OCDCloud.persist();
 }
-function loadRecord(){
-  return window.__ocdCache.record || 0;
+
+// Ogni "modalità" (vanilla = nessuna espansione, oppure l'id di un'espansione)
+// ha il proprio record indipendente, salvato come mappa {modeKey: rank}.
+function modeKeyFor(expansion){ return expansion || 'vanilla'; }
+
+// "rank" codifica in un solo numero sia il livello sia la fase (normale/boss),
+// così i record restano facilmente confrontabili: livello 3 normale = 30,
+// livello 3 boss = 35, livello 4 normale = 40, ecc.
+function levelRank(level, phase){ return level*10 + (phase==='boss' ? 5 : 0); }
+function rankToLabel(rank){
+  const level = Math.floor(rank/10);
+  const isBoss = (rank%10)===5;
+  return isBoss ? `${level} · Boss` : `${level}`;
 }
-function updateRecordIfHigher(level){
-  if(level > (window.__ocdCache.record||0)){
-    window.__ocdCache.record = level;
+
+function loadRecord(expansion){
+  const key = modeKeyFor(expansion);
+  return (window.__ocdCache.records && window.__ocdCache.records[key]) || 0;
+}
+function updateRecordIfHigher(rank, expansion){
+  const key = modeKeyFor(expansion);
+  if(!window.__ocdCache.records) window.__ocdCache.records = {};
+  if(rank > (window.__ocdCache.records[key]||0)){
+    window.__ocdCache.records[key] = rank;
     window.OCDCloud && window.OCDCloud.persist();
   }
 }
 // Una "partita completata" è una run finita (morte o vittoria): a quel punto
-// si aggiorna il record col livello raggiunto e si azzera la partita salvata.
-function finishRun(reachedLevel){
-  updateRecordIfHigher(reachedLevel);
+// si aggiorna il record (della modalità giocata) col livello/fase raggiunti,
+// e si azzera la partita salvata.
+function finishRun(){
+  const rank = levelRank(state.level, state.levelPhase);
+  updateRecordIfHigher(rank, state.expansion);
   clearSave();
+}
+
+// Impostazioni persistite (quali espansioni sono attive dal bottone "Espansioni").
+function loadActiveExpansions(){
+  return (window.__ocdCache.settings && window.__ocdCache.settings.expansions) || {};
+}
+function setExpansionActive(id, active){
+  if(!window.__ocdCache.settings) window.__ocdCache.settings = { expansions:{} };
+  if(!window.__ocdCache.settings.expansions) window.__ocdCache.settings.expansions = {};
+  window.__ocdCache.settings.expansions[id] = active;
+  window.OCDCloud && window.OCDCloud.persist();
 }
 
 function newGame(){
@@ -166,8 +227,15 @@ function newGame(){
 }
 
 function startRun(cls){
+  // Se una sola espansione può essere attiva alla volta, prendiamo quella
+  // (eventualmente) selezionata dall'utente nel bottone "Espansioni".
+  const active = loadActiveExpansions();
+  const expansion = Object.keys(active).find(id=>active[id]) || null;
+
   state = {
     level: 1,
+    expansion,
+    levelPhase: 'normal',
     class: cls,
     skills: { speed:1, atk:1, def:1, range:2 },
     hp: 6, maxHp: 6,
@@ -177,9 +245,11 @@ function startRun(cls){
     walls: [],
     entryStair: {x:0,y:0}, exitStair: {x:GRID-1,y:GRID-1},
     monsters: [],
-    selectedDie: null, selectedMonster: null,
+    chest: null, loot: 0, lootUsedStat: null,
+    knightMode: false, clericBoostUsed: false,
+    selectedDie: null, selectedMonster: null, selectedChest: null,
     prevDice: [],
-    abilityUsed: { paladin:false, ranger:false, wizard:false },
+    abilityUsed: { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false },
     barbarianUsedThisTurn: false,
     animating: false, animAttacker: null,
   };
@@ -190,21 +260,16 @@ function totalRange(){ return state.skills.range + (state.points.range||0); }
 
 function chebyshev(ax,ay,bx,by){ return Math.max(Math.abs(ax-bx), Math.abs(ay-by)); }
 
-// Procedural wall placement (invented — the real card art isn't available to me).
-// Walls avoid the player start, both stair tiles, and always leave the board connected.
-function makeWalls(level, forbiddenExtra){
-  // Le regole ufficiali prevedono sempre 3 celle Muro per scheda, a prescindere dal livello.
-  const wallCount = 3;
-  const forbidden = new Set([key(0,0), key(GRID-1,GRID-1), ...(forbiddenExtra||[])]);
+// Sceglie "count" celle da "candidatePool" (evitando quelle in "forbidden"),
+// mantenendo la scacchiera completamente collegata a partire da (0,0).
+// Usata sia per i Muri dei livelli normali sia per quelli delle stanze Boss.
+function pickConnectedCells(candidatePool, count, forbidden){
   for(let attempt=0; attempt<40; attempt++){
-    const candidates = [];
-    for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
-      if(!forbidden.has(key(x,y))) candidates.push([x,y]);
-    }
+    const candidates = candidatePool.filter(([x,y])=>!forbidden.has(key(x,y)));
     candidates.sort(()=>Math.random()-0.5);
     const chosen = [];
     for(const [x,y] of candidates){
-      if(chosen.length>=wallCount) break;
+      if(chosen.length>=count) break;
       const testBlocked = new Set([...chosen,[x,y]].map(([a,b])=>key(a,b)));
       const {dist} = dijkstra(0,0,GRID,testBlocked);
       // keep board fully connected
@@ -215,19 +280,24 @@ function makeWalls(level, forbiddenExtra){
       }
       if(ok) chosen.push([x,y]);
     }
-    if(chosen.length===wallCount) return chosen;
+    if(chosen.length===count) return chosen;
   }
-  return []; // fallback estremamente improbabile
+  return candidatePool.slice(0,count); // fallback estremamente improbabile
 }
 
-// Random placement with hard constraints: nothing overlaps (walls / monsters / stairs),
-// and no monster may spawn adjacent (orthogonally or diagonally) to the Adventurer's start tile.
-function spawnLevel(lvl){
-  const t = MONSTER_TABLE[lvl];
-  state.player = {x:0,y:0};
-  state.entryStair = {x:0,y:0};
-  state.exitStair = {x:GRID-1,y:GRID-1};
+// Procedural wall placement (invented — the real card art isn't available to me).
+// Walls avoid the player start, both stair tiles, and always leave the board connected.
+function makeWalls(level, forbiddenExtra){
+  // Le regole ufficiali prevedono sempre 3 celle Muro per scheda, a prescindere dal livello.
+  const wallCount = 3;
+  const forbidden = new Set([key(0,0), key(GRID-1,GRID-1), ...(forbiddenExtra||[])]);
+  const allCells = [];
+  for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++) allCells.push([x,y]);
+  return pickConnectedCells(allCells, wallCount, forbidden);
+}
 
+function spawnNormalLevel(lvl){
+  const t = MONSTER_TABLE[lvl];
   state.walls = makeWalls(lvl, [state.exitStair.x+','+state.exitStair.y]);
   const wallSet = new Set(state.walls.map(([x,y])=>key(x,y)));
 
@@ -243,10 +313,58 @@ function spawnLevel(lvl){
     monsters.push({x,y,hp:t.hp,maxHp:t.hp,range:t.range,def:t.def,atk:t.atk,speed:t.speed,icon:t.icon,name:t.name,alive:true});
   }
   state.monsters = monsters;
+
+  // Espansione "M'Guf-yn Returns" — Cassa del Tesoro: un tiro di 1d6 a inizio
+  // livello, posizionata sulla scala opposta a quella d'ingresso. Fino a
+  // quando non viene aperta conta come una casella Muro a tutti gli effetti.
+  if(state.expansion==='mguf_yn_returns'){
+    const roll = 1+Math.floor(Math.random()*6);
+    state.chest = { x: state.exitStair.x, y: state.exitStair.y, roll, opened:false };
+  }
+}
+
+// Stanza del Boss: il boss occupa sempre la casella centrale; 2 o 3 delle 8
+// caselle adiacenti (a seconda del boss) diventano Muro, scelte a caso a
+// ogni run ma mantenendo la scacchiera collegata. Nessun altro mostro, nessuna
+// Cassa del Tesoro. Ingresso e uscita restano le stesse di sempre.
+function spawnBossLevel(lvl){
+  const b = BOSS_TABLE[lvl];
+  const cx = Math.floor(GRID/2), cy = Math.floor(GRID/2); // (2,2) su griglia 5x5
+  const adjacentToCenter = [];
+  for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+    if(dx===0 && dy===0) continue;
+    adjacentToCenter.push([cx+dx, cy+dy]);
+  }
+  const forbidden = new Set([key(0,0), key(state.exitStair.x,state.exitStair.y), key(cx,cy)]);
+  state.walls = pickConnectedCells(adjacentToCenter, b.walls, forbidden);
+
+  state.monsters = [{
+    x:cx, y:cy, hp:b.hp, maxHp:b.hp, range:b.range, def:b.def, atk:b.atk, speed:b.speed,
+    icon:b.icon, name:b.name, alive:true, isBoss:true,
+  }];
+  // Nessuna cassa nei livelli boss.
+}
+
+// Random placement with hard constraints: nothing overlaps (walls / monsters / stairs),
+// and no monster may spawn adjacent (orthogonally or diagonally) to the Adventurer's start tile.
+function spawnLevel(lvl){
+  state.player = {x:0,y:0};
+  state.entryStair = {x:0,y:0};
+  state.exitStair = {x:GRID-1,y:GRID-1};
+  state.walls = []; state.monsters = []; state.chest = null;
+
+  if(state.expansion==='mguf_yn_returns' && state.levelPhase==='boss'){
+    spawnBossLevel(lvl);
+  } else {
+    spawnNormalLevel(lvl);
+  }
+
   state.dice=[]; state.points={speed:0,atk:0,def:0,range:0}; state.spent={speed:0,atk:0};
-  state.phase='roll'; state.selectedDie=null; state.selectedMonster=null;
-  state.prevDice = []; state.abilityUsed = { paladin:false, ranger:false, wizard:false };
+  state.phase='roll'; state.selectedDie=null; state.selectedMonster=null; state.selectedChest=null;
+  state.prevDice = [];
+  state.abilityUsed = { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false };
   state.barbarianUsedThisTurn = false;
+  state.lootUsedStat = null; state.knightMode = false; state.clericBoostUsed = false;
   render();
 }
 
@@ -263,9 +381,16 @@ function occupiedBy(x,y, excludeMonster){
     if(m===excludeMonster || !m.alive) continue;
     if(m.x===x && m.y===y) return 'monster';
   }
+  if(state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y) return 'chest';
   return null;
 }
-function wallSetOf(){ return new Set(state.walls.map(([x,y])=>key(x,y))); }
+// Include anche la Cassa del Tesoro finché non è aperta: "è da considerarsi
+// come un muro" per movimento e pathfinding di personaggio e mostri.
+function wallSetOf(){
+  const s = new Set(state.walls.map(([x,y])=>key(x,y)));
+  if(state.chest && !state.chest.opened) s.add(key(state.chest.x, state.chest.y));
+  return s;
+}
 
 function totalStat(k){ return state.skills[k] + state.points[k]; }
 
@@ -278,6 +403,12 @@ function playerBlocked(){
 
 function playerRangeTo(mx,my){
   const blocked = new Set(wallSetOf());
+  // Se il bersaglio è proprio la cella occupata da un mostro o dalla Cassa del
+  // Tesoro (non ancora aperta), la sua stessa cella non va considerata un
+  // ostacolo per calcolarne la distanza — altrimenti sarebbe irraggiungibile.
+  if(state.chest && !state.chest.opened && state.chest.x===mx && state.chest.y===my){
+    blocked.delete(key(mx,my));
+  }
   for(const m of state.monsters){ if(m.alive && !(m.x===mx&&m.y===my)) blocked.add(key(m.x,m.y)); }
   const {dist} = dijkstra(state.player.x, state.player.y, GRID, blocked);
   return dist[key(mx,my)];
@@ -285,16 +416,20 @@ function playerRangeTo(mx,my){
 
 function playerLoSTo(mx,my){
   const blocking = [...state.walls];
+  if(state.chest && !state.chest.opened && !(state.chest.x===mx && state.chest.y===my)){
+    blocking.push([state.chest.x, state.chest.y]);
+  }
   for(const m of state.monsters){ if(m.alive && !(m.x===mx&&m.y===my)) blocking.push([m.x,m.y]); }
   return hasLoS(state.player.x, state.player.y, mx, my, blocking);
 }
 
-// Linea di Vista è una proprietà geometrica simmetrica: i muri E le caselle
-// occupate da ALTRI mostri bloccano la visuale in entrambe le direzioni.
-// Questo helper calcola i bloccanti dal punto di vista di un mostro specifico
-// (escludendo se stesso, ovviamente).
+// Linea di Vista è una proprietà geometrica simmetrica: i muri, la Cassa del
+// Tesoro chiusa, E le caselle occupate da ALTRI mostri bloccano la visuale in
+// entrambe le direzioni. Questo helper calcola i bloccanti dal punto di vista
+// di un mostro specifico (escludendo se stesso, ovviamente).
 function monsterLosBlockers(excludeMonster){
   const blocking = [...state.walls];
+  if(state.chest && !state.chest.opened) blocking.push([state.chest.x, state.chest.y]);
   for(const o of state.monsters){
     if(o!==excludeMonster && o.alive) blocking.push([o.x,o.y]);
   }
@@ -367,6 +502,7 @@ async function rollDice(){
   state.dice = fresh;
   state.phase='assign';
   state.barbarianUsedThisTurn = false;
+  state.clericBoostUsed = false;
   state.animating = false;
   log(`Lanci i dadi Energia: ${state.dice.map(d=>d.value).join(', ')}`);
   render();
@@ -384,6 +520,7 @@ async function rollKeepingDie(kept){
   state.abilityUsed.paladin = true;
   state.phase='assign';
   state.barbarianUsedThisTurn = false;
+  state.clericBoostUsed = false;
   state.animating = false;
   log(`🛡️ Abilità Paladino: mantieni un dado da ${kept}. Nuovi dadi: ${state.dice.map(d=>d.value).join(', ')}`);
   render();
@@ -399,6 +536,7 @@ async function wizardReroll(){
   await animateDiceRoll(fresh.map(d=>d.value));
   state.dice = fresh;
   state.abilityUsed.wizard = true;
+  state.clericBoostUsed = false;
   state.animating = false;
   log(`🔮 Abilità Mago: rilanci tutti i dadi. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
   render();
@@ -415,8 +553,35 @@ async function barbarianReroll(){
   await animateDiceRoll(fresh.map(d=>d.value));
   state.dice = fresh;
   state.barbarianUsedThisTurn = true;
+  state.clericBoostUsed = false;
   state.animating = false;
   log(`🪓 Abilità Barbaro (1 Salute): rilanci tutti i dadi. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
+  render();
+}
+
+// Chierico: se i tre dadi Energia mostrano lo stesso valore, li aumenta tutti
+// di 2 (tetto a 6). Utilizzabile ogni volta che la condizione si verifica
+// (non è "una volta per livello"), ma una sola volta per singolo tiro.
+function clericBoost(){
+  if(state.class!=='cleric' || state.clericBoostUsed) return;
+  if(state.phase!=='assign' || state.dice.some(d=>d.target) || state.animating) return;
+  if(state.dice.length!==3) return;
+  const [a,b,c] = state.dice.map(d=>d.value);
+  if(!(a===b && b===c)) return;
+  state.dice.forEach(d=>{ d.value = Math.min(6, d.value+2); });
+  state.clericBoostUsed = true;
+  log(`✨ Abilità Chierico: dadi in tris, aumentati di 2 (max 6). Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
+  render();
+}
+
+// Ladro: una volta per Livello, +1 al valore di tutti e tre i dadi Energia
+// lanciati, SENZA alcun tetto massimo (un 6 diventa un 7).
+function thiefBoost(){
+  if(state.class!=='thief' || state.abilityUsed.thief) return;
+  if(state.phase!=='assign' || state.dice.some(d=>d.target) || state.animating) return;
+  state.dice.forEach(d=>{ d.value += 1; });
+  state.abilityUsed.thief = true;
+  log(`🗝️ Abilità Ladro: tutti i dadi +1. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
   render();
 }
 
@@ -427,9 +592,20 @@ function selectDie(i){
   render();
 }
 
+// Cavaliere: una volta per Livello può "armare" l'abilità che gli permette di
+// assegnare un SECONDO dado a una caratteristica già occupata (sommandone i
+// valori); il terzo dado va comunque su una caratteristica diversa.
+function toggleKnightMode(){
+  if(state.class!=='knight' || state.abilityUsed.knight) return;
+  if(state.phase!=='assign' || state.animating) return;
+  state.knightMode = !state.knightMode;
+  render();
+}
+
 // Regola ufficiale: un solo dado per caratteristica (niente somma di più dadi
 // sulla stessa voce), e la Gittata del Ranger sostituisce la Velocità per il
-// turno — non si possono usare entrambe nello stesso turno.
+// turno — non si possono usare entrambe nello stesso turno. Eccezione: il
+// Cavaliere, una volta per Livello, può raddoppiare una caratteristica.
 function assignTo(stat){
   if(state.animating) return;
   if(state.selectedDie===null) return;
@@ -441,9 +617,14 @@ function assignTo(stat){
   const defTaken   = state.dice.some(x=>x.target==='def');
   const rangeTaken = state.dice.some(x=>x.target==='range');
 
-  if(stat==='speed' && (speedTaken || rangeTaken)) return;
-  if(stat==='atk' && atkTaken) return;
-  if(stat==='def' && defTaken) return;
+  // L'abilità Cavaliere si applica solo a velocità/attacco/difesa (mai a
+  // gittata, che comunque solo il Ranger può mai bersagliare con un dado).
+  const knightDouble = state.knightMode && !state.abilityUsed.knight &&
+    ((stat==='speed'&&speedTaken) || (stat==='atk'&&atkTaken) || (stat==='def'&&defTaken));
+
+  if(stat==='speed' && (speedTaken || rangeTaken) && !knightDouble) return;
+  if(stat==='atk' && atkTaken && !knightDouble) return;
+  if(stat==='def' && defTaken && !knightDouble) return;
   if(stat==='range'){
     if(state.class!=='ranger' || state.abilityUsed.ranger) return;
     if(rangeTaken || speedTaken) return;
@@ -454,6 +635,11 @@ function assignTo(stat){
   d.target = stat;
   state.points[stat] += d.value;
   state.selectedDie = null;
+  if(knightDouble){
+    state.abilityUsed.knight = true;
+    state.knightMode = false;
+    log(`🐴 Abilità Cavaliere: secondo dado (${d.value}) sommato sulla stessa caratteristica.`);
+  }
   if(state.dice.every(d=>d.target)){
     state.phase='act';
     state.prevDice = state.dice.map(d=>d.value);
@@ -477,6 +663,14 @@ function cellInfo(x,y){
     const canHit = inRange && los && remAtk>=m.def;
     return {type:'monster', monster:m, canHit, dist, los};
   }
+  if(occ==='chest'){
+    const dist = playerRangeTo(x,y);
+    const inRange = dist!==undefined && dist<=totalStat('range');
+    const los = playerLoSTo(x,y);
+    const remAtk = totalStat('atk') - state.spent.atk;
+    const canHit = inRange && los && remAtk>=state.chest.roll;
+    return {type:'chest', canHit, dist, los};
+  }
   if(occ==='player') return {type:null};
   const dist = playerRangeTo(x,y);
   const remSpeed = totalStat('speed') - state.spent.speed;
@@ -494,6 +688,11 @@ function handleCellClick(x,y){
     render();
   } else if(info.type==='monster'){
     state.selectedMonster = info.monster;
+    state.selectedChest = false;
+    render();
+  } else if(info.type==='chest'){
+    state.selectedChest = true;
+    state.selectedMonster = null;
     render();
   }
 }
@@ -514,6 +713,71 @@ function attackSelected(){
     log(`Colpisci ${m.name} ${m.icon} (−${m.def}⚡ Attacco): resta ${m.hp}/${m.maxHp} Salute.`);
   }
   render();
+}
+
+// Cassa del Tesoro: si apre come un mostro (Gittata + Linea di Vista),
+// spendendo Attacco pari al valore del dado tesoro. Il bottino ottenuto si
+// aggiunge a quello disponibile per il resto del livello (vedi spendLoot()).
+function openChest(){
+  if(state.animating) return;
+  if(!state.chest || state.chest.opened) return;
+  const info = cellInfo(state.chest.x, state.chest.y);
+  if(info.type!=='chest' || !info.canHit) return;
+  state.spent.atk += state.chest.roll;
+  state.chest.opened = true;
+  state.loot += state.chest.roll;
+  spawnFloatText(state.chest.x, state.chest.y, `+${state.chest.roll}💰`, 'loot');
+  log(`🎁 Apri la Cassa del Tesoro (−${state.chest.roll}⚡ Attacco): ottieni ${state.chest.roll} punti Bottino.`);
+  state.selectedChest = false;
+  render();
+}
+
+// Bottino: spendibile durante la Fase Energia su UNA sola caratteristica per
+// turno (tutto in una volta o parzialmente); si sottrae dal totale disponibile.
+function spendLoot(stat, amount){
+  if(state.animating) return;
+  if(state.phase==='act') return; // solo durante la Fase Energia (roll/assign)
+  if(!state.loot || state.loot<=0) return;
+  if(state.lootUsedStat && state.lootUsedStat!==stat) return;
+  amount = Math.floor(Number(amount)) || 0;
+  amount = Math.max(1, Math.min(amount, state.loot));
+  if(amount<=0) return;
+  state.points[stat] = (state.points[stat]||0) + amount;
+  state.loot -= amount;
+  state.lootUsedStat = stat;
+  log(`💰 Spendi ${amount} punti Bottino su ${stat}.`);
+  render();
+}
+
+// Negromante: una volta per Livello, durante l'Azione, perde 1 Salute per
+// infliggere 1 danno (ignora la Difesa) a un nemico in Gittata e Linea di
+// Vista. Non consuma Attacco/energia. Non disponibile a 1 Salute.
+function necromancerTarget(){
+  const m = state.selectedMonster;
+  if(!m || !m.alive) return null;
+  const dist = playerRangeTo(m.x,m.y);
+  const inRange = dist!==undefined && dist<=totalStat('range');
+  const los = playerLoSTo(m.x,m.y);
+  return (inRange && los) ? m : null;
+}
+function necromancerStrike(){
+  if(state.class!=='necromancer' || state.abilityUsed.necromancer) return;
+  if(state.phase!=='act' || state.animating) return;
+  if(state.hp<=1) return;
+  const target = necromancerTarget();
+  if(!target) return;
+  state.hp -= 1;
+  target.hp -= 1;
+  spawnFloatText(target.x, target.y, '-1', 'dmg');
+  state.abilityUsed.necromancer = true;
+  if(target.hp<=0){
+    target.alive = false;
+    log(`🧛 Abilità Negromante: −1 Salute, abbatti ${target.name} ${target.icon} ignorandone la Difesa!`);
+  } else {
+    log(`🧛 Abilità Negromante: −1 Salute per infliggere 1 danno a ${target.name} ${target.icon} (ignora la Difesa).`);
+  }
+  render();
+  if(state.hp<=0){ showGameOver(); }
 }
 
 /* ============================================================
@@ -658,14 +922,30 @@ async function endTurn(){
 
   state.animating = false;
   state.dice=[]; state.points={speed:0,atk:0,def:0,range:0}; state.spent={speed:0,atk:0};
-  state.selectedMonster=null; state.phase='roll';
+  state.selectedMonster=null; state.selectedChest=null; state.phase='roll';
 
   if(state.hp<=0){ render(); showGameOver(); return; }
   if(state.monsters.every(m=>!m.alive)){ render(); onLevelClear(); return; }
   render();
 }
 
+// Livello concluso. Con l'espansione "M'Guf-yn Returns" attiva, i livelli
+// 3-6-9-12 si "espandono" in una seconda fase (il Boss) PRIMA della normale
+// schermata "potenzia/cura", che viene quindi posticipata a dopo il Boss.
 function onLevelClear(){
+  if(state.expansion==='mguf_yn_returns' && state.levelPhase==='normal' && BOSS_LEVELS.has(state.level)){
+    state.levelPhase = 'boss';
+    spawnLevel(state.level);
+    return;
+  }
+  // Il bottino non riportato a un Boss (livelli normali che non lo precedono,
+  // o qualunque livello Boss appena concluso) va perso qui.
+  state.loot = 0;
+  if(state.levelPhase==='boss'){
+    if(state.level>=MAX_LEVEL){ showVictory(); return; }
+    showLevelUp();
+    return;
+  }
   if(state.level>=MAX_LEVEL){ showVictory(); return; }
   showLevelUp();
 }
@@ -675,13 +955,15 @@ function onLevelClear(){
    ============================================================ */
 function showClassSelect(){
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  const active = loadActiveExpansions();
+  const visibleClasses = Object.entries(CLASSES).filter(([id,c])=> !c.expansion || active[c.expansion]);
   m.innerHTML = `
     <h2>⚔ Scegli il tuo Eroe</h2>
     <p style="font-size:.8rem;">Variante "Classi" del regolamento ufficiale — ogni classe parte con le statistiche base (Velocità 1, Attacco 1, Difesa 1, Gittata 2, Salute 6) più un'abilità unica.</p>
     <div id="classList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
   `;
   const list = m.querySelector('#classList');
-  Object.entries(CLASSES).forEach(([id,c])=>{
+  visibleClasses.forEach(([id,c])=>{
     const b=document.createElement('button');
     b.className='btn secondary';
     b.style.textAlign='left';
@@ -748,26 +1030,31 @@ function showLevelUp(){
     if(mode==='upgrade') state.skills[picked]++;
     else if(mode==='heal') state.hp=state.maxHp;
     state.level++;
+    state.levelPhase = 'normal';
     bg.classList.add('hidden');
     spawnLevel(state.level);
   };
 }
 
 function showGameOver(){
-  finishRun(state.level);
+  finishRun();
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  const levelLabel = state.levelPhase==='boss' ? `${state.level} · Boss` : `${state.level}`;
   m.innerHTML = `<h2 style="color:var(--blood-bright)">💀 Sei Caduto</h2>
-    <p>Il tuo Avventuriero soccombe al Livello ${state.level}. Il dungeon reclama un'altra anima...</p>
+    <p>Il tuo Avventuriero soccombe al Livello ${levelLabel}. Il dungeon reclama un'altra anima...</p>
     <button class="btn gold" id="retryBtn">Torna al Menu</button>`;
   bg.classList.remove('hidden');
   m.querySelector('#retryBtn').onclick=()=>{ bg.classList.add('hidden'); showSplash(); };
 }
 
 function showVictory(){
-  finishRun(MAX_LEVEL);
+  finishRun();
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  const bossVictory = state.expansion==='mguf_yn_returns' && state.levelPhase==='boss';
   m.innerHTML = `<h2 style="color:var(--gold-bright)">👑 Vittoria!</h2>
-    <p>Hai abbattuto tutti i mostri del Livello 12 e conquistato lo <b>Scettro di M'Guf-yn</b>. Il tuo villaggio è salvo!</p>
+    <p>${bossVictory
+      ? `Hai sconfitto <b>M'Guf-yn</b> in persona e riconquistato lo <b>Scettro</b>. Il tuo villaggio è salvo!`
+      : `Hai abbattuto tutti i mostri del Livello 12 e conquistato lo <b>Scettro di M'Guf-yn</b>. Il tuo villaggio è salvo!`}</p>
     <button class="btn gold" id="againBtn">Torna al Menu</button>`;
   bg.classList.remove('hidden');
   m.querySelector('#againBtn').onclick=()=>{ bg.classList.add('hidden'); showSplash(); };
@@ -787,11 +1074,14 @@ function renderStats(){
   const defTaken   = state.dice.some(d=>d.target==='def');
   const rangeTaken = state.dice.some(d=>d.target==='range');
   const rangerAvail = state.class==='ranger' && !state.abilityUsed.ranger;
+  // Cavaliere: con l'abilità "armata", una caratteristica già assegnata resta
+  // comunque bersagliabile per il secondo dado (una sola volta per Livello).
+  const knightAvail = state.knightMode && !state.abilityUsed.knight;
 
   const targetable = {
-    speed: canAssign && !speedTaken && !rangeTaken,
-    atk:   canAssign && !atkTaken,
-    def:   canAssign && !defTaken,
+    speed: canAssign && (!speedTaken || knightAvail) && !rangeTaken,
+    atk:   canAssign && (!atkTaken || knightAvail),
+    def:   canAssign && (!defTaken || knightAvail),
     range: canAssign && rangerAvail && !rangeTaken && !speedTaken,
   };
 
@@ -862,9 +1152,95 @@ function renderDice(){
       b.onclick=barbarianReroll;
       assignRow.appendChild(b);
     }
+    // Chierico: tris di dadi uguali → +2 a tutti (max 6), prima di assegnare
+    if(state.class==='cleric' && !state.clericBoostUsed && !state.dice.some(d=>d.target)){
+      const [a,b2,c] = state.dice.map(d=>d.value);
+      if(a===b2 && b2===c){
+        const b=document.createElement('button');
+        b.className='assign-btn'; b.textContent='✨ Tris! Aumenta tutti di 2 (Chierico)';
+        b.onclick=clericBoost;
+        assignRow.appendChild(b);
+      }
+    }
+    // Ladro: una volta per Livello, tutti i dadi +1 (nessun tetto)
+    if(state.class==='thief' && !state.abilityUsed.thief && !state.dice.some(d=>d.target)){
+      const b=document.createElement('button');
+      b.className='assign-btn'; b.textContent='🗝️ Tutti i dadi +1 (Ladro)';
+      b.onclick=thiefBoost;
+      assignRow.appendChild(b);
+    }
+    // Cavaliere: arma/disarma l'abilità che permette un secondo dado sulla
+    // stessa caratteristica (si applica poi toccando le caratteristiche sopra)
+    if(state.class==='knight' && !state.abilityUsed.knight){
+      const b=document.createElement('button');
+      b.className='assign-btn'+(state.knightMode?' selected':'');
+      b.textContent = state.knightMode
+        ? '🐴 Abilità attiva — tocca una caratteristica già scelta'
+        : '🐴 Raddoppia una caratteristica (Cavaliere)';
+      b.onclick=toggleKnightMode;
+      assignRow.appendChild(b);
+    }
   } else if(state.phase==='act'){
     label.textContent = `Velocità disp. ${totalStat('speed')-state.spent.speed} · Attacco disp. ${totalStat('atk')-state.spent.atk}`;
+    // Negromante: una volta per Livello, −1 Salute per 1 danno che ignora la
+    // Difesa a un nemico in Gittata + Linea di Vista (non a 1 Salute).
+    if(state.class==='necromancer' && !state.abilityUsed.necromancer && state.hp>1){
+      const target = necromancerTarget();
+      const b=document.createElement('button');
+      b.className='assign-btn'+(!target?' disabled':'');
+      b.textContent='🧛 Colpo Negromante (−1 Salute, ignora Difesa)';
+      if(target) b.onclick=necromancerStrike;
+      assignRow.appendChild(b);
+    }
   }
+  renderLoot();
+}
+
+// Bottino della Cassa del Tesoro: spendibile durante la Fase Energia
+// (roll/assign), tutto in una volta o parzialmente, su UNA sola
+// caratteristica per turno.
+function renderLoot(){
+  const lootRow = document.getElementById('lootRow');
+  if(!lootRow) return;
+  lootRow.innerHTML = '';
+  if(state.phase==='act' || !state.loot || state.loot<=0){ lootRow.classList.add('hidden'); return; }
+  lootRow.classList.remove('hidden');
+
+  const stats = [
+    {id:'speed', label:'🏃 Velocità'},
+    {id:'atk',   label:'⚔ Attacco'},
+    {id:'def',   label:'🛡 Difesa'},
+    {id:'range', label:'🎯 Gittata'},
+  ];
+  const locked = state.lootUsedStat;
+
+  const title = document.createElement('div');
+  title.className = 'loot-title';
+  title.textContent = `💰 Bottino disponibile: ${state.loot}`;
+  lootRow.appendChild(title);
+
+  const amountWrap = document.createElement('div');
+  amountWrap.className = 'loot-amount-wrap';
+  const amountInput = document.createElement('input');
+  amountInput.type = 'number';
+  amountInput.min = '1';
+  amountInput.max = String(state.loot);
+  amountInput.value = String(state.loot);
+  amountInput.className = 'loot-amount';
+  amountWrap.appendChild(amountInput);
+  lootRow.appendChild(amountWrap);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'loot-btn-row';
+  stats.forEach(s=>{
+    const disabled = locked && locked!==s.id;
+    const b=document.createElement('button');
+    b.className='assign-btn loot-btn'+(disabled?' disabled':'');
+    b.textContent = s.label;
+    if(!disabled) b.onclick = ()=> spendLoot(s.id, amountInput.value);
+    btnRow.appendChild(b);
+  });
+  lootRow.appendChild(btnRow);
 }
 
 function renderGrid(){
@@ -872,17 +1248,20 @@ function renderGrid(){
   grid.style.gridTemplateColumns = `repeat(${GRID},1fr)`;
   grid.style.gridTemplateRows = `repeat(${GRID},1fr)`;
   grid.innerHTML='';
-  const wallSet = wallSetOf();
+  // Solo i Muri "veri" (non la Cassa) prendono lo stile grigio: la Cassa ha
+  // una resa visiva propria pur bloccando il movimento come un Muro.
+  const rawWallSet = new Set(state.walls.map(([wx,wy])=>key(wx,wy)));
   for(let y=0;y<GRID;y++){
     for(let x=0;x<GRID;x++){
       const cell=document.createElement('div');
       cell.className='cell';
       const k=key(x,y);
-      const isWall = wallSet.has(k);
+      const isWall = rawWallSet.has(k);
+      const isChestCell = state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y;
       const isEntry = x===state.entryStair.x && y===state.entryStair.y;
       const isExit = x===state.exitStair.x && y===state.exitStair.y;
       if(isWall) cell.classList.add('wall');
-      if((isEntry||isExit) && !isWall) cell.classList.add('stair');
+      if((isEntry||isExit) && !isWall && !isChestCell) cell.classList.add('stair');
 
       const isPlayer = state.player.x===x && state.player.y===y;
       const monster = state.monsters.find(m=>m.alive && m.x===x && m.y===y);
@@ -890,16 +1269,20 @@ function renderGrid(){
       if(state.phase==='act' && !isWall){
         const info = cellInfo(x,y);
         if(info.type==='move') cell.classList.add('reachable');
-        if(info.type==='monster' && info.canHit) cell.classList.add('attackable');
+        if((info.type==='monster' || info.type==='chest') && info.canHit) cell.classList.add('attackable');
       }
       if(state.selectedMonster && monster===state.selectedMonster) cell.classList.add('selected-monster');
+      if(state.selectedChest && isChestCell) cell.classList.add('selected-monster');
       if(state.animAttacker && monster===state.animAttacker) cell.classList.add('attacking');
 
       if(isPlayer){
         cell.classList.add('player');
         cell.innerHTML = `<span class="token">🧙</span><span class="hp-badge">${state.hp}</span>`;
       } else if(monster){
-        cell.innerHTML = `<span class="token">${monster.icon}</span><span class="hp-badge">${monster.hp}</span>`;
+        cell.innerHTML = `<span class="token${monster.isBoss?' boss-token':''}">${monster.icon}</span><span class="hp-badge">${monster.hp}</span>`;
+      } else if(isChestCell){
+        cell.classList.add('chest');
+        cell.innerHTML = `<span class="token">🎁</span><span class="chest-badge">${state.chest.roll}</span>`;
       } else if(isEntry){
         cell.innerHTML = `<span class="token" style="opacity:.5">🔼</span>`;
       } else if(isExit){
@@ -913,39 +1296,56 @@ function renderGrid(){
 
 function renderInspect(){
   const box=document.getElementById('inspect');
-  if(!state.monsters.length){ box.innerHTML=''; return; }
+  let html = '';
 
-  // Ogni mostro del livello è una copia identica: un solo blocco di
-  // caratteristiche basta per tutti, sempre visibile (nessun "tocca per
-  // esaminare"). La Salute mostrata è quella MASSIMA della singola creatura
-  // (non la somma del gruppo), come sulla carta ufficiale.
-  const rep = state.monsters[0];
-  const allDead = state.monsters.every(m=>!m.alive);
+  if(state.monsters.length){
+    // Ogni mostro del livello è una copia identica (tranne i Boss, sempre da
+    // soli): un solo blocco di caratteristiche basta per tutti, sempre
+    // visibile. La Salute mostrata è quella MASSIMA della singola creatura
+    // (non la somma del gruppo), come sulla carta ufficiale.
+    const rep = state.monsters[0];
+    const allDead = state.monsters.every(m=>!m.alive);
 
-  const sel = (state.selectedMonster && state.selectedMonster.alive) ? state.selectedMonster : null;
-  const info = (sel && state.phase==='act') ? cellInfo(sel.x, sel.y) : {canHit:false};
+    const sel = (state.selectedMonster && state.selectedMonster.alive) ? state.selectedMonster : null;
+    const info = (sel && state.phase==='act') ? cellInfo(sel.x, sel.y) : {canHit:false};
 
-  box.innerHTML = `
-    <div class="title">${rep.icon} ${rep.name}${allDead?' (sconfitti)':''}</div>
-    <div class="mstats">
-      <div><span>${rep.maxHp}</span><small>Salute</small></div>
-      <div><span>${rep.speed}</span><small>Velocità</small></div>
-      <div><span>${rep.atk}</span><small>Attacco</small></div>
-      <div><span>${rep.def}</span><small>Difesa</small></div>
-      <div><span>${rep.range}</span><small>Gittata</small></div>
-    </div>
-    <div class="hint" style="margin-top:6px;">${sel ? `Selezionato: ${sel.icon} ${sel.name} — ${sel.hp}/${sel.maxHp} Salute` : (allDead ? 'Gruppo sconfitto.' : 'Tocca un mostro sulla mappa per selezionarlo e attaccarlo.')}</div>
-    ${info.canHit ? `<button class="btn small" id="attackBtn">⚔ Attacca (−${sel.def}⚡ Attacco)</button>` : ''}
-  `;
-  if(info.canHit){
-    box.querySelector('#attackBtn').onclick = attackSelected;
+    html += `
+      <div class="title">${rep.isBoss?'👑 ':''}${rep.icon} ${rep.name}${allDead?' (sconfitto)':''}</div>
+      <div class="mstats">
+        <div><span>${rep.maxHp}</span><small>Salute</small></div>
+        <div><span>${rep.speed}</span><small>Velocità</small></div>
+        <div><span>${rep.atk}</span><small>Attacco</small></div>
+        <div><span>${rep.def}</span><small>Difesa</small></div>
+        <div><span>${rep.range}</span><small>Gittata</small></div>
+      </div>
+      <div class="hint" style="margin-top:6px;">${sel ? `Selezionato: ${sel.icon} ${sel.name} — ${sel.hp}/${sel.maxHp} Salute` : (allDead ? 'Gruppo sconfitto.' : 'Tocca un mostro sulla mappa per selezionarlo e attaccarlo.')}</div>
+      ${info.canHit ? `<button class="btn small" id="attackBtn">⚔ Attacca (−${sel.def}⚡ Attacco)</button>` : ''}
+    `;
   }
+
+  if(state.chest && !state.chest.opened){
+    const chestInfo = (state.selectedChest && state.phase==='act') ? cellInfo(state.chest.x, state.chest.y) : {canHit:false};
+    html += `
+      <div class="title" style="margin-top:${state.monsters.length?'10px':'0'};color:var(--gold-bright)">🎁 Cassa del Tesoro</div>
+      <div class="hint">${state.selectedChest ? `Difesa ${state.chest.roll} — apri spendendo ${state.chest.roll}⚡ Attacco.` : 'Tocca la Cassa sulla mappa per selezionarla e aprirla.'}</div>
+      ${chestInfo.canHit ? `<button class="btn small gold" id="openChestBtn">🎁 Apri (−${state.chest.roll}⚡ Attacco)</button>` : ''}
+    `;
+  }
+
+  box.innerHTML = html;
+  const attackBtn = box.querySelector('#attackBtn');
+  if(attackBtn) attackBtn.onclick = attackSelected;
+  const openBtn = box.querySelector('#openChestBtn');
+  if(openBtn) openBtn.onclick = openChest;
 }
 
 function render(){
   if(!state) return;
   const clsInfo = CLASSES[state.class];
-  document.getElementById('levelBanner').textContent = `Livello ${state.level} di ${MAX_LEVEL} — ${MONSTER_TABLE[state.level].name} · ${clsInfo.icon} ${clsInfo.name}`;
+  const isBossPhase = state.levelPhase==='boss';
+  const enemyName = isBossPhase ? BOSS_TABLE[state.level].name : MONSTER_TABLE[state.level].name;
+  const levelText = isBossPhase ? `Livello ${state.level} · Boss` : `Livello ${state.level} di ${MAX_LEVEL}`;
+  document.getElementById('levelBanner').textContent = `${levelText} — ${isBossPhase?'👑 ':''}${enemyName} · ${clsInfo.icon} ${clsInfo.name}`;
   renderStats();
   renderDice();
   renderGrid();
@@ -970,19 +1370,54 @@ function renderSplash(){
   const continueBtn = document.getElementById('continueBtn2');
   if(save){
     const cls = CLASSES[save.class] || CLASSES.none;
-    continueBtn.textContent = `▶ Continua — ${cls.icon} ${cls.name}, Livello ${save.level}`;
+    const savedLevelLabel = save.levelPhase==='boss' ? `${save.level} · Boss` : `${save.level}`;
+    continueBtn.textContent = `▶ Continua — ${cls.icon} ${cls.name}, Livello ${savedLevelLabel}`;
     continueBtn.classList.remove('hidden');
   } else {
     continueBtn.classList.add('hidden');
   }
-  const record = loadRecord();
+
+  // Un record indipendente per modalità: vanilla + una riga per ogni espansione.
   const recordBox = document.getElementById('recordBox');
-  if(record>0){
-    document.getElementById('recordVal').textContent = record;
+  const lines = [];
+  const vanillaRank = loadRecord(null);
+  if(vanillaRank>0) lines.push(`🏆 Vanilla — Livello ${rankToLabel(vanillaRank)}`);
+  Object.keys(EXPANSIONS).forEach(id=>{
+    const rank = loadRecord(id);
+    if(rank>0) lines.push(`🏆 ${EXPANSIONS[id].name} — Livello ${rankToLabel(rank)}`);
+  });
+  if(lines.length){
+    document.getElementById('recordVal').innerHTML = lines.join('<br>');
     recordBox.classList.remove('hidden');
   } else {
     recordBox.classList.add('hidden');
   }
+}
+
+function showExpansionSelect(){
+  const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  const render2 = ()=>{
+    const active = loadActiveExpansions();
+    m.innerHTML = `
+      <h2>👑 Espansioni</h2>
+      <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita". Puoi cambiarle in qualsiasi momento da qui.</p>
+      <div id="expList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+      <button class="btn" id="closeExpansionsBtn" style="margin-top:14px;">Chiudi</button>
+    `;
+    const list = m.querySelector('#expList');
+    Object.entries(EXPANSIONS).forEach(([id,e])=>{
+      const isActive = !!active[id];
+      const b=document.createElement('button');
+      b.className = 'btn secondary' + (isActive?' picked':'');
+      b.style.textAlign='left';
+      b.innerHTML = `<div style="font-family:'Cinzel',serif;">${e.icon} ${e.name} ${isActive?'✔':''}</div><div style="font-family:'IM Fell English',serif; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${e.desc}</div>`;
+      b.onclick = ()=>{ setExpansionActive(id, !isActive); render2(); };
+      list.appendChild(b);
+    });
+    m.querySelector('#closeExpansionsBtn').onclick = ()=>{ bg.classList.add('hidden'); };
+  };
+  render2();
+  bg.classList.remove('hidden');
 }
 
 function showSplash(){
@@ -998,6 +1433,7 @@ function showGame(){
 }
 
 document.getElementById('newGameBtn').onclick = ()=>{ showClassSelect(); };
+document.getElementById('expansionsBtn').onclick = ()=>{ showExpansionSelect(); };
 
 document.getElementById('continueBtn2').onclick = ()=>{
   const save = loadSave();
@@ -1011,9 +1447,9 @@ document.getElementById('continueBtn2').onclick = ()=>{
 };
 
 document.getElementById('resetBtn').onclick = ()=>{
-  if(!confirm('Cancellare la partita in corso e il record? L\'azione non è reversibile.')) return;
+  if(!confirm('Cancellare la partita in corso e tutti i record? L\'azione non è reversibile.')) return;
   window.__ocdCache.save = null;
-  window.__ocdCache.record = 0;
+  window.__ocdCache.records = {};
   window.OCDCloud && window.OCDCloud.persist();
   renderSplash();
 };

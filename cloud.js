@@ -35,12 +35,13 @@ function setAuthMode(mode){
 async function loadGameData(userId){
   const { data, error } = await sb
     .from('one_card_dungeon_game_saves')
-    .select('save, record')
+    .select('save, records, settings')
     .eq('user_id', userId)
     .maybeSingle();
   if(error){ console.error('Errore caricamento partita:', error); }
   window.__ocdCache.save = data ? data.save : null;
-  window.__ocdCache.record = data ? (data.record||0) : 0;
+  window.__ocdCache.records = (data && data.records) ? data.records : {};
+  window.__ocdCache.settings = (data && data.settings) ? data.settings : { expansions:{} };
 }
 
 /* ---------- scrittura (debounced) su Supabase ---------- */
@@ -52,7 +53,8 @@ window.OCDCloud = {
       const { error } = await sb.from('one_card_dungeon_game_saves').upsert({
         user_id: currentUser.id,
         save: window.__ocdCache.save,
-        record: window.__ocdCache.record,
+        records: window.__ocdCache.records,
+        settings: window.__ocdCache.settings,
         updated_at: new Date().toISOString()
       });
       if(error) console.error('Errore salvataggio su Supabase:', error);

@@ -146,3 +146,36 @@
 .loading-wrap{ margin:auto; text-align:center; font-family:'Cinzel',serif; letter-spacing:.08em; color:var(--parchment-dim); text-transform:uppercase; font-size:.8rem; }
 .logout-btn{ margin-top:6px; }
 .user-email-line{ text-align:center; font-size:.68rem; color:var(--parchment-dim); margin-top:2px; word-break:break-all; }
+
+/* ============================================================
+   ESPANSIONE "M'GUF-YN RETURNS"
+   ============================================================ */
+
+/* Pulsanti abilità "attivati" (Cavaliere in attesa del secondo dado) */
+.assign-btn.selected{ background:var(--gold); color:#221a12; outline:2px solid var(--gold-bright); }
+.assign-btn.disabled{ opacity:.3; pointer-events:none; }
+
+/* Selezione espansione in home (stesso trattamento del "picked" per le classi) */
+.btn.secondary.picked{ outline:3px solid var(--gold-bright); box-shadow:0 0 10px var(--gold-bright); }
+
+/* Boss: leggero bagliore dorato sul token, per distinguerlo a colpo d'occhio */
+.boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
+
+/* Cassa del Tesoro: stile dorato, distinto dai Muri e dagli HP dei mostri */
+.cell.chest{ background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); box-shadow:inset 0 0 0 2px var(--gold-bright); }
+.cell.chest .chest-badge{
+  position:absolute; bottom:1px; right:1px; background:rgba(0,0,0,.75); color:var(--gold-bright);
+  font-size:.7rem; font-family:'Cinzel',serif; font-weight:700; padding:1px 3px; border-radius:5px; line-height:1.2;
+}
+.floattext.loot{ color:var(--gold-bright); }
+
+/* Bottino: pannello nel tray per spendere i punti raccolti dalla Cassa */
+.loot-row{ margin-top:8px; padding-top:8px; border-top:1px dashed rgba(201,162,75,.4); text-align:center; }
+.loot-title{ font-family:'Cinzel',serif; font-size:.62rem; letter-spacing:.05em; color:var(--gold-bright); text-transform:uppercase; margin-bottom:6px; }
+.loot-amount-wrap{ display:flex; justify-content:center; margin-bottom:6px; }
+.loot-amount{
+  width:64px; text-align:center; padding:6px 4px; border-radius:7px; border:1px solid var(--gold);
+  background:var(--stone-2); color:var(--parchment); font-family:'Cinzel',serif; font-size:.85rem;
+}
+.loot-btn-row{ display:flex; justify-content:center; gap:6px; flex-wrap:wrap; }
+.loot-btn{ border-color:var(--gold-bright); }
