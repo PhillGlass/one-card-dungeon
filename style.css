@@ -162,8 +162,13 @@
 /* Boss: leggero bagliore dorato sul token, per distinguerlo a colpo d'occhio */
 .boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
 
-/* Cassa del Tesoro: stile dorato, distinto dai Muri e dagli HP dei mostri */
-.cell.chest{ background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); box-shadow:inset 0 0 0 2px var(--gold-bright); }
+/* Cassa del Tesoro: nessun bordo fisso — proprio come i mostri (bordo rosso
+   solo se attaccabili), qui il bordo compare SOLO quando è davvero in
+   Gittata+Linea di Vista e l'Attacco disponibile copre la sua Difesa (verde,
+   non rosso, per non confonderla con un nemico). Se è solo selezionata ma non
+   ancora attaccabile, il bordo resta oro come promemoria della selezione. */
+.cell.chest{ background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); }
+.cell.chest.attackable{ box-shadow:inset 0 0 0 2px var(--green-bright); background:#243a22; }
 .cell.chest .chest-badge{
   position:absolute; bottom:1px; right:1px; background:rgba(0,0,0,.75); color:var(--gold-bright);
   font-size:.7rem; font-family:'Cinzel',serif; font-weight:700; padding:1px 3px; border-radius:5px; line-height:1.2;
@@ -178,5 +183,10 @@
 }
 .die.loot-die.selected{ outline:3px solid var(--gold-bright); transform:translateY(-3px); }
 
-/* Bottone di conferma "fine Bottino, vai alla Fase Azione" */
-.assign-btn.confirm-btn{ background:var(--gold); color:#221a12; border-color:#fff3d0; }
+/* Bottone di conferma "fine Bottino, vai alla Fase Azione": piccola freccia
+   sulla stessa riga dei dadi, spinta a destra, alta quanto un dado. */
+.assign-btn.confirm-btn{
+  background:var(--gold); color:#221a12; border-color:#fff3d0;
+  margin-left:auto; width:36px; height:44px; padding:0; font-size:1.1rem;
+  display:flex; align-items:center; justify-content:center;
+}

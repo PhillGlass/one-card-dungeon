@@ -1216,13 +1216,16 @@ function renderDice(){
       assignRow.appendChild(b);
     }
     // Bottino esaurito (o tutti i dadi assegnati senza Bottino residuo): si
-    // avanza già in automatico. Se invece resta Bottino, serve la conferma.
+    // avanza già in automatico. Se invece resta Bottino, serve la conferma —
+    // una piccola freccia sulla STESSA riga dei dadi (non una riga a parte),
+    // per non occupare spazio verticale nel tray.
     if(state.dice.every(d=>d.target) && state.loot>0){
       const b=document.createElement('button');
       b.className='assign-btn confirm-btn';
-      b.textContent='➡ Fine Bottino — Vai alla Fase Azione';
+      b.textContent='➡';
+      b.title='Fine Bottino — vai alla Fase Azione';
       b.onclick=confirmEnergyDone;
-      assignRow.appendChild(b);
+      row.appendChild(b);
     }
   } else if(state.phase==='act'){
     label.textContent = `Velocità disp. ${totalStat('speed')-state.spent.speed} · Attacco disp. ${totalStat('atk')-state.spent.atk}`;
@@ -1237,15 +1240,15 @@ function renderDice(){
       assignRow.appendChild(b);
     }
   }
-  renderLootDie(row);
+  // Il Dado Tesoro compare SOLO quando i tre dadi standard sono già visibili
+  // nel tray (Fase "assign"), mai prima del lancio e mai in Fase Azione.
+  // Il suo funzionamento resta invariato: si può usare prima, durante o dopo
+  // l'assegnazione degli altri tre dadi.
+  if(state.phase==='assign') renderLootDie(row);
 }
 
-// Dado Tesoro: appare come 4° dado, giallo, accanto ai tre standard, mostrando
-// il Bottino residuo. Disponibile durante tutta la Fase Energia (sia prima
-// che dopo il tiro dei tre dadi standard), mai durante la Fase Azione.
 function renderLootDie(row){
   if(!state.loot || state.loot<=0) return;
-  if(state.phase!=='roll' && state.phase!=='assign') return;
   const el=document.createElement('div');
   el.className='die loot-die'+(state.lootDieActive?' selected':'');
   el.textContent=state.loot;
@@ -1329,18 +1332,15 @@ function renderInspect(){
         <div><span>${rep.def}</span><small>Difesa</small></div>
         <div><span>${rep.range}</span><small>Gittata</small></div>
       </div>
-      <div class="hint" style="margin-top:6px;">${sel ? `Selezionato: ${sel.icon} ${sel.name} — ${sel.hp}/${sel.maxHp} Salute` : (allDead ? 'Gruppo sconfitto.' : 'Tocca un mostro sulla mappa per selezionarlo e attaccarlo.')}</div>
       ${info.canHit ? `<button class="btn small" id="attackBtn">⚔ Attacca (−${sel.def}⚡ Attacco)</button>` : ''}
     `;
   }
 
   if(state.chest && !state.chest.opened){
     const chestInfo = (state.selectedChest && state.phase==='act') ? cellInfo(state.chest.x, state.chest.y) : {canHit:false};
-    html += `
-      <div class="title" style="margin-top:${state.monsters.length?'10px':'0'};color:var(--gold-bright)">🎁 Cassa del Tesoro</div>
-      <div class="hint">${state.selectedChest ? `Difesa ${state.chest.roll} — apri spendendo ${state.chest.roll}⚡ Attacco.` : 'Tocca la Cassa sulla mappa per selezionarla e aprirla.'}</div>
-      ${chestInfo.canHit ? `<button class="btn small gold" id="openChestBtn">🎁 Apri (−${state.chest.roll}⚡ Attacco)</button>` : ''}
-    `;
+    if(chestInfo.canHit){
+      html += `<button class="btn small gold" id="openChestBtn" style="margin-top:${state.monsters.length?'10px':'0'};">🎁 Apri (−${state.chest.roll}⚡ Attacco)</button>`;
+    }
   }
 
   box.innerHTML = html;
