@@ -1434,7 +1434,7 @@ function renderDice(){
       ? 'Fiamma del Fato: tocca i dadi non assegnati da rilanciare'
       : (state.selectedDie===null && !state.lootDieActive
         ? 'Tocca un dado, poi la caratteristica evidenziata'
-        : 'Ora tocca la caratteristica in alto a cui assegnarlo');
+        : 'Ora tocca la caratteristica a cui assegnarlo');
     state.dice.forEach((d,i)=>{
       const el=document.createElement('div');
       const flameSelectable = state.flameFateMode && !d.target;
