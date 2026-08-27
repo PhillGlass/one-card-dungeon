@@ -1532,8 +1532,11 @@ function renderLootDie(row){
 
 function renderGrid(){
   const grid=document.getElementById('grid');
-  grid.style.gridTemplateColumns = `repeat(${GRID},1fr)`;
-  grid.style.gridTemplateRows = `repeat(${GRID},1fr)`;
+  // minmax(0,1fr) e non 1fr: con 1fr il minimo della riga e' il contenuto
+  // (l'emoji), e la griglia non potrebbe accorciarsi quando lo spazio in
+  // verticale scarseggia. Vedi il blocco "ADATTAMENTO IN ALTEZZA" in style.css.
+  grid.style.gridTemplateColumns = `repeat(${GRID},minmax(0,1fr))`;
+  grid.style.gridTemplateRows = `repeat(${GRID},minmax(0,1fr))`;
   grid.innerHTML='';
   // Solo i Muri "veri" (non la Cassa) prendono lo stile grigio: la Cassa ha
   // una resa visiva propria pur bloccando il movimento come un Muro.
