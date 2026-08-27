@@ -130,14 +130,116 @@ const CLASSES = {
     desc:"Una volta per Livello, puoi aumentare di 1 il valore di tutti e tre i dadi Energia lanciati (nessun tetto massimo)." },
 };
 
-// Espansioni disponibili — attivabili/disattivabili dal bottone "Espansioni" in home.
+// Espansioni disponibili — attivabili/disattivabili dal bottone "Espansioni"
+// in home, e combinabili liberamente tra loro.
 const EXPANSIONS = {
   mguf_yn_returns: {
     name: "M'Guf-yn Returns",
     icon: "👑",
     desc: "4 Boss dopo i livelli 3-6-9-12, la Cassa del Tesoro e 4 nuove classi (Negromante, Chierico, Cavaliere, Ladro).",
   },
+  item_cards: {
+    name: "Carte Oggetto",
+    icon: "🃏",
+    desc: "A inizio partita ricevi 3 carte Oggetto casuali, usabili una sola volta ciascuna nei momenti giusti della partita. Compatibile con il gioco base e con le altre espansioni.",
+  },
 };
+
+// Carte Oggetto: ogni carta indica quando è "usable" nello stato attuale del
+// gioco (per abilitare/disabilitare il bottone nel pannello) e cosa fa "use()"
+// quando viene giocata. La rimozione dalla mano (scarto) è gestita a parte in
+// discardCard(), tranne per Fiamma del Fato che richiede una selezione prima
+// di scartarsi davvero (vedi confirmFlameFate()).
+const ITEM_CARDS = {
+  wyrm_speed: {
+    name: "Estratto di Wyrm Spinato", icon: "🐉", expansion:'item_cards',
+    desc: "Aggiungi +4 al tuo movimento.",
+    usable: ()=> state.phase==='act' && !state.animating,
+    use(){
+      state.itemBonus.speed += 4;
+      log('🐉 Estratto di Wyrm Spinato: +4 Velocità per questo turno.');
+      discardCard('wyrm_speed'); render();
+    }
+  },
+  halve_damage: {
+    name: "Dimezza i Danni Subiti", icon: "🩹", expansion:'item_cards',
+    desc: "Attivala prima di finire il turno: tutto il danno che subirai dai mostri questo turno viene dimezzato (arrotondato per eccesso).",
+    usable: ()=> state.phase==='act' && !state.animating,
+    use(){
+      state.halveDamageThisTurn = true;
+      log('🩹 Il danno subito questo turno sarà dimezzato.');
+      discardCard('halve_damage'); render();
+    }
+  },
+  flame_of_fate: {
+    name: "Fiamma del Fato", icon: "🔥", expansion:'item_cards',
+    desc: "Rilancia uno o più dadi Energia non ancora assegnati e tieni il nuovo risultato.",
+    usable: ()=> state.phase==='assign' && !state.animating && state.dice.some(d=>!d.target),
+    use(){
+      // Non si scarta subito: prima si scelgono i dadi da rilanciare (vedi
+      // toggleFlameFateDie()/confirmFlameFate()/cancelFlameFate() nel tray).
+      state.flameFateMode = true; state.flameFateSelected = [];
+      render();
+    }
+  },
+  rope_pick: {
+    name: "Corda e Piccozza", icon: "⛏️", expansion:'item_cards',
+    desc: "Durante i tuoi attacchi standard di questo turno: +2 Attacco e +2 Gittata.",
+    usable: ()=> state.phase==='act' && !state.animating,
+    use(){
+      state.itemBonus.atk += 2; state.itemBonus.range += 2;
+      log('⛏️ Corda e Piccozza: +2 Attacco, +2 Gittata per i tuoi attacchi standard.');
+      discardCard('rope_pick'); render();
+    }
+  },
+  gorgon_head: {
+    name: "Testa della Gorgona", icon: "🐍", expansion:'item_cards',
+    desc: "Per questo turno, tutti i mostri hanno Velocità 0 (restano fermi, ma attaccano normalmente se già in Gittata).",
+    usable: ()=> !state.animating,
+    use(){
+      state.monsterSpeedOverride = 0;
+      log('🐍 Testa della Gorgona: i mostri restano fermi questo turno.');
+      discardCard('gorgon_head'); render();
+    }
+  },
+  hourglass: {
+    name: "Clessidra", icon: "⏳", expansion:'item_cards',
+    desc: "Salta completamente la Fase Mostri: tocca subito di nuovo a te con una nuova Fase Energia.",
+    usable: ()=> state.phase==='act' && !state.animating,
+    use(){
+      state.skipMonstersThisTurn = true;
+      log('⏳ Clessidra: la Fase Mostri viene saltata, tocca di nuovo a te.');
+      discardCard('hourglass'); render();
+    }
+  },
+  black_powder: {
+    name: "Polvere Nera", icon: "💥", expansion:'item_cards',
+    desc: "Il prossimo danno che infliggi con un attacco standard (non con abilità speciali) colpisce anche tutti gli altri mostri, anche se fuori Gittata o Linea di Vista.",
+    usable: ()=> state.phase==='act' && !state.animating,
+    use(){
+      state.blackPowderArmed = true;
+      log('💥 Polvere Nera armata: il prossimo colpo si propagherà a tutti i mostri.');
+      discardCard('black_powder'); render();
+    }
+  },
+  dragon_eye: {
+    name: "Occhio di Drago", icon: "👁️", expansion:'item_cards',
+    desc: "Nel prossimo lancio, uno dei tre dadi Energia sarà un d12 invece di un d6.",
+    usable: ()=> state.phase==='roll' && !state.animating,
+    use(){
+      state.dragonEyeArmed = true;
+      log('👁️ Occhio di Drago: il prossimo lancio userà un d12.');
+      discardCard('dragon_eye'); render();
+    }
+  },
+};
+function discardCard(id){
+  const i = state.itemCards.indexOf(id);
+  if(i>=0) state.itemCards.splice(i,1);
+}
+function itemAtkBonus(){ return (state.itemBonus && state.itemBonus.atk) || 0; }
+function itemRangeBonus(){ return (state.itemBonus && state.itemBonus.range) || 0; }
+function itemSpeedBonus(){ return (state.itemBonus && state.itemBonus.speed) || 0; }
 
 // Boss dell'espansione "M'Guf-yn Returns": compaiono subito dopo aver
 // sgominato i mostri del livello indicato (3, 6, 9, 12), prima di procedere
@@ -176,9 +278,9 @@ function clearSave(){
   window.OCDCloud && window.OCDCloud.persist();
 }
 
-// Ogni "modalità" (vanilla = nessuna espansione, oppure l'id di un'espansione)
-// ha il proprio record indipendente, salvato come mappa {modeKey: rank}.
-function modeKeyFor(expansion){ return expansion || 'vanilla'; }
+// Il record vale solo per "M'Guf-yn Returns attivo sì/no": le Carte Oggetto
+// (e in futuro Eternal Peak/Harbour Clash) non creano record separati.
+function modeKeyFor(expansions){ return (expansions && expansions.includes('mguf_yn_returns')) ? 'mguf_yn_returns' : 'vanilla'; }
 
 // "rank" codifica in un solo numero sia il livello sia la fase (normale/boss),
 // così i record restano facilmente confrontabili: livello 3 normale = 30,
@@ -190,12 +292,12 @@ function rankToLabel(rank){
   return isBoss ? `${level} · Boss` : `${level}`;
 }
 
-function loadRecord(expansion){
-  const key = modeKeyFor(expansion);
+function loadRecord(expansionKey){
+  const key = expansionKey || 'vanilla';
   return (window.__ocdCache.records && window.__ocdCache.records[key]) || 0;
 }
-function updateRecordIfHigher(rank, expansion){
-  const key = modeKeyFor(expansion);
+function updateRecordIfHigher(rank, expansionKey){
+  const key = expansionKey || 'vanilla';
   if(!window.__ocdCache.records) window.__ocdCache.records = {};
   if(rank > (window.__ocdCache.records[key]||0)){
     window.__ocdCache.records[key] = rank;
@@ -207,11 +309,12 @@ function updateRecordIfHigher(rank, expansion){
 // e si azzera la partita salvata.
 function finishRun(){
   const rank = levelRank(state.level, state.levelPhase);
-  updateRecordIfHigher(rank, state.expansion);
+  updateRecordIfHigher(rank, modeKeyFor(state.expansions));
   clearSave();
 }
 
 // Impostazioni persistite (quali espansioni sono attive dal bottone "Espansioni").
+// Sono combinabili tra loro (es. M'Guf-yn Returns + Carte Oggetto insieme).
 function loadActiveExpansions(){
   return (window.__ocdCache.settings && window.__ocdCache.settings.expansions) || {};
 }
@@ -226,15 +329,23 @@ function newGame(){
   showClassSelect();
 }
 
+// Pesca 3 carte Oggetto casuali (senza ripetizioni) tra quelle disponibili
+// per le espansioni attive in questa run.
+function dealItemCards(expansions){
+  const pool = Object.entries(ITEM_CARDS)
+    .filter(([id,c])=> expansions.includes(c.expansion))
+    .map(([id])=>id);
+  const shuffled = pool.slice().sort(()=>Math.random()-0.5);
+  return shuffled.slice(0,3);
+}
+
 function startRun(cls){
-  // Se una sola espansione può essere attiva alla volta, prendiamo quella
-  // (eventualmente) selezionata dall'utente nel bottone "Espansioni".
   const active = loadActiveExpansions();
-  const expansion = Object.keys(active).find(id=>active[id]) || null;
+  const expansions = Object.keys(active).filter(id=>active[id]);
 
   state = {
     level: 1,
-    expansion,
+    expansions,
     levelPhase: 'normal',
     class: cls,
     skills: { speed:1, atk:1, def:1, range:2 },
@@ -252,6 +363,15 @@ function startRun(cls){
     abilityUsed: { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false },
     barbarianUsedThisTurn: false,
     animating: false, animAttacker: null,
+    // Carte Oggetto (modulo "item_cards", combinabile con qualsiasi altra espansione)
+    itemCards: expansions.includes('item_cards') ? dealItemCards(expansions) : [],
+    itemBonus: {speed:0, atk:0, def:0, range:0},
+    halveDamageThisTurn: false,
+    monsterSpeedOverride: null,
+    skipMonstersThisTurn: false,
+    blackPowderArmed: false,
+    dragonEyeArmed: false,
+    flameFateMode: false, flameFateSelected: [],
   };
   spawnLevel(1);
 }
@@ -317,7 +437,7 @@ function spawnNormalLevel(lvl){
   // Espansione "M'Guf-yn Returns" — Cassa del Tesoro: un tiro di 1d6 a inizio
   // livello, posizionata sulla scala opposta a quella d'ingresso. Fino a
   // quando non viene aperta conta come una casella Muro a tutti gli effetti.
-  if(state.expansion==='mguf_yn_returns'){
+  if(state.expansions.includes('mguf_yn_returns')){
     const roll = 1+Math.floor(Math.random()*6);
     state.chest = { x: state.exitStair.x, y: state.exitStair.y, roll, opened:false };
   }
@@ -353,7 +473,7 @@ function spawnLevel(lvl){
   state.exitStair = {x:GRID-1,y:GRID-1};
   state.walls = []; state.monsters = []; state.chest = null;
 
-  if(state.expansion==='mguf_yn_returns' && state.levelPhase==='boss'){
+  if(state.expansions.includes('mguf_yn_returns') && state.levelPhase==='boss'){
     spawnBossLevel(lvl);
   } else {
     spawnNormalLevel(lvl);
@@ -365,6 +485,11 @@ function spawnLevel(lvl){
   state.abilityUsed = { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false };
   state.barbarianUsedThisTurn = false;
   state.lootUsedStat = null; state.lootDieActive = false; state.knightMode = false; state.clericBoostUsed = false;
+  // Carte Oggetto: bonus/flag "per turno" azzerati anche a inizio livello.
+  state.itemBonus = {speed:0, atk:0, def:0, range:0};
+  state.halveDamageThisTurn = false; state.monsterSpeedOverride = null;
+  state.skipMonstersThisTurn = false; state.blackPowderArmed = false; state.dragonEyeArmed = false;
+  state.flameFateMode = false; state.flameFateSelected = [];
   render();
 }
 
@@ -457,29 +582,32 @@ function spawnFloatText(x,y,text,cls){
 
 // Animates dice "composing" their value (rapid random cycling that settles on
 // the real roll) before the real state update happens. lockedIndices are dice
-// shown immediately at their final value (e.g. Paladino's kept die).
-function animateDiceRoll(finalValues, lockedIndices){
+// shown immediately at their final value (e.g. Paladino's kept die). Accetta i
+// die object completi (non solo il valore) per sapere quali sono d12 (Occhio
+// di Drago) e ciclare nel range corretto durante l'animazione.
+function animateDiceRoll(diceObjs, lockedIndices){
   lockedIndices = lockedIndices||[];
   return new Promise(resolve=>{
     const row=document.getElementById('diceRow');
     const assignRow=document.getElementById('assignRow');
     if(assignRow) assignRow.innerHTML='';
     row.innerHTML='';
-    const els = finalValues.map((v,i)=>{
+    const randFor = (d)=> 1+Math.floor(Math.random()*(d.isD12?12:6));
+    const els = diceObjs.map((d,i)=>{
       const el=document.createElement('div');
       const locked = lockedIndices.includes(i);
-      el.className='die'+(locked?' settled':' rolling');
-      el.textContent = locked ? v : 1+Math.floor(Math.random()*6);
+      el.className='die'+(locked?' settled':' rolling')+(d.isD12?' d12':'');
+      el.textContent = locked ? d.value : randFor(d);
       row.appendChild(el);
       return el;
     });
     let ticks=0;
     const iv=setInterval(()=>{
-      els.forEach((el,i)=>{ if(!lockedIndices.includes(i)) el.textContent = 1+Math.floor(Math.random()*6); });
+      els.forEach((el,i)=>{ if(!lockedIndices.includes(i)) el.textContent = randFor(diceObjs[i]); });
       ticks++;
       if(ticks>=7){
         clearInterval(iv);
-        els.forEach((el,i)=>{ el.textContent=finalValues[i]; el.classList.remove('rolling'); el.classList.add('settled'); });
+        els.forEach((el,i)=>{ el.textContent=diceObjs[i].value; el.classList.remove('rolling'); el.classList.add('settled'); });
         setTimeout(resolve,180);
       }
     },70);
@@ -489,8 +617,19 @@ function animateDiceRoll(finalValues, lockedIndices){
 /* ============================================================
    ENERGY PHASE (+ class abilities)
    ============================================================ */
+// Occhio di Drago (Carte Oggetto): se armata, il PROSSIMO lancio dei dadi
+// standard usa un d12 al posto di un d6 per uno dei tre dadi (l'ultimo, per
+// non entrare mai in conflitto con il dado "mantenuto" del Paladino, che
+// occupa sempre l'indice 0). La carta si consuma da sola qui, dato che può
+// essere armata solo in Fase 'roll', cioè solo per il prossimo tiro.
 function rollFreshDice(){
-  return [0,0,0].map(()=>({value:1+Math.floor(Math.random()*6), target:null}));
+  const dice = [0,0,0].map(()=>({value:1+Math.floor(Math.random()*6), target:null, isD12:false}));
+  if(state.dragonEyeArmed){
+    dice[2].isD12 = true;
+    dice[2].value = 1+Math.floor(Math.random()*12);
+    state.dragonEyeArmed = false;
+  }
+  return dice;
 }
 
 async function rollDice(){
@@ -498,7 +637,7 @@ async function rollDice(){
   state.animating = true;
   render();
   const fresh = rollFreshDice();
-  await animateDiceRoll(fresh.map(d=>d.value));
+  await animateDiceRoll(fresh);
   state.dice = fresh;
   state.phase='assign';
   state.barbarianUsedThisTurn = false;
@@ -514,8 +653,8 @@ async function rollKeepingDie(kept){
   state.animating = true;
   render();
   const fresh = rollFreshDice();
-  fresh[0] = {value:kept, target:null};
-  await animateDiceRoll(fresh.map(d=>d.value), [0]);
+  fresh[0] = {value:kept, target:null, isD12:false};
+  await animateDiceRoll(fresh, [0]);
   state.dice = fresh;
   state.abilityUsed.paladin = true;
   state.phase='assign';
@@ -533,7 +672,7 @@ async function wizardReroll(){
   state.animating = true;
   render();
   const fresh = rollFreshDice();
-  await animateDiceRoll(fresh.map(d=>d.value));
+  await animateDiceRoll(fresh);
   state.dice = fresh;
   state.abilityUsed.wizard = true;
   state.clericBoostUsed = false;
@@ -550,7 +689,7 @@ async function barbarianReroll(){
   render();
   state.points = {speed:0,atk:0,def:0,range:0};
   const fresh = rollFreshDice();
-  await animateDiceRoll(fresh.map(d=>d.value));
+  await animateDiceRoll(fresh);
   state.dice = fresh;
   state.barbarianUsedThisTurn = true;
   state.clericBoostUsed = false;
@@ -590,6 +729,34 @@ function selectDie(i){
   if(state.dice[i].target) return;
   state.lootDieActive = false; // selezionare un dado normale esce dalla modalità Dado Tesoro
   state.selectedDie = (state.selectedDie===i)?null:i;
+  render();
+}
+
+// Fiamma del Fato (Carte Oggetto): seleziona uno o più dadi non ancora
+// assegnati, poi conferma per rilanciarli tutti insieme (si tiene il nuovo
+// risultato). Annullare non consuma la carta.
+function toggleFlameFateDie(i){
+  if(state.animating || !state.flameFateMode) return;
+  if(state.dice[i].target) return;
+  const idx = state.flameFateSelected.indexOf(i);
+  if(idx>=0) state.flameFateSelected.splice(idx,1);
+  else state.flameFateSelected.push(i);
+  render();
+}
+function cancelFlameFate(){
+  state.flameFateMode = false; state.flameFateSelected = [];
+  render();
+}
+function confirmFlameFate(){
+  if(state.animating || !state.flameFateSelected.length) return;
+  state.flameFateSelected.forEach(i=>{
+    const d = state.dice[i];
+    d.value = d.isD12 ? (1+Math.floor(Math.random()*12)) : (1+Math.floor(Math.random()*6));
+  });
+  log(`🔥 Fiamma del Fato: rilanci ${state.flameFateSelected.length} dado/i. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
+  state.flameFateMode = false; state.flameFateSelected = [];
+  state.clericBoostUsed = false; // nuovi valori: il Chierico può ricontrollare il tris
+  discardCard('flame_of_fate');
   render();
 }
 
@@ -702,23 +869,23 @@ function cellInfo(x,y){
   if(occ==='monster'){
     const m = state.monsters.find(m=>m.alive && m.x===x && m.y===y);
     const dist = playerRangeTo(x,y);
-    const inRange = dist!==undefined && dist<=totalStat('range'); // fixed, unless boosted by the Ranger ability
+    const inRange = dist!==undefined && dist<=totalStat('range')+itemRangeBonus(); // fixed, unless boosted by the Ranger ability or item cards
     const los = playerLoSTo(x,y);
-    const remAtk = totalStat('atk') - state.spent.atk;
+    const remAtk = totalStat('atk') + itemAtkBonus() - state.spent.atk;
     const canHit = inRange && los && remAtk>=m.def;
     return {type:'monster', monster:m, canHit, dist, los};
   }
   if(occ==='chest'){
     const dist = playerRangeTo(x,y);
-    const inRange = dist!==undefined && dist<=totalStat('range');
+    const inRange = dist!==undefined && dist<=totalStat('range')+itemRangeBonus();
     const los = playerLoSTo(x,y);
-    const remAtk = totalStat('atk') - state.spent.atk;
+    const remAtk = totalStat('atk') + itemAtkBonus() - state.spent.atk;
     const canHit = inRange && los && remAtk>=state.chest.roll;
     return {type:'chest', canHit, dist, los};
   }
   if(occ==='player') return {type:null};
   const dist = playerRangeTo(x,y);
-  const remSpeed = totalStat('speed') - state.spent.speed;
+  const remSpeed = totalStat('speed') + itemSpeedBonus() - state.spent.speed;
   if(dist!==undefined && dist<=remSpeed && dist>0) return {type:'move', dist};
   return {type:null};
 }
@@ -757,6 +924,20 @@ function attackSelected(){
   } else {
     log(`Colpisci ${m.name} ${m.icon} (−${m.def}⚡ Attacco): resta ${m.hp}/${m.maxHp} Salute.`);
   }
+  // Polvere Nera (Carte Oggetto): il danno di QUESTO attacco standard si
+  // propaga a tutti gli altri mostri vivi, anche fuori Gittata/Linea di Vista.
+  if(state.blackPowderArmed){
+    state.blackPowderArmed = false;
+    let hitCount = 0;
+    state.monsters.forEach(other=>{
+      if(other===m || !other.alive) return;
+      other.hp -= 1;
+      hitCount++;
+      spawnFloatText(other.x, other.y, '-1', 'dmg');
+      if(other.hp<=0) other.alive = false;
+    });
+    if(hitCount) log(`💥 Polvere Nera: il colpo si propaga ad altri ${hitCount} mostri.`);
+  }
   render();
 }
 
@@ -781,6 +962,8 @@ function openChest(){
 // Negromante: una volta per Livello, durante l'Azione, perde 1 Salute per
 // infliggere 1 danno (ignora la Difesa) a un nemico in Gittata e Linea di
 // Vista. Non consuma Attacco/energia. Non disponibile a 1 Salute.
+// NOTA: non è "un attacco standard" — non beneficia dei bonus di Gittata delle
+// Carte Oggetto (es. Corda e Piccozza) né viene esteso da Polvere Nera.
 function necromancerTarget(){
   const m = state.selectedMonster;
   if(!m || !m.alive) return null;
@@ -820,6 +1003,11 @@ async function monsterMovementPhase(){
     .map(o=>o.m);
 
   for(const m of order){
+    // Testa della Gorgona (Carte Oggetto): per questo turno tutti i mostri
+    // hanno Velocità 0 (restano fermi, ma possono comunque attaccare dopo se
+    // sono già in Gittata — la Fase Attacco non viene toccata da questa carta).
+    const effSpeed = (state.monsterSpeedOverride!=null) ? state.monsterSpeedOverride : m.speed;
+
     // rangeFromAdv è solo una metrica di distanza (per capire quali celle sono
     // "in Gittata" rispetto al personaggio): non è un vero movimento, quindi
     // non va bloccata dagli altri mostri.
@@ -853,7 +1041,7 @@ async function monsterMovementPhase(){
       const moveCost = mReach.dist[k];
       // "reachable" = il mostro ha abbastanza Velocità per arrivarci in QUESTO
       // turno (non solo teoricamente raggiungibile ignorando il budget).
-      candidates.push({x,y,rangeFromAdv,los,moveCost,reachable: moveCost<=m.speed});
+      candidates.push({x,y,rangeFromAdv,los,moveCost,reachable: moveCost<=effSpeed});
     }
 
     let target=null;
@@ -884,7 +1072,7 @@ async function monsterMovementPhase(){
     if(target && (target.x!==m.x || target.y!==m.y)){
       const path = reconstructPath(mReach.prev, m.x, m.y, target.x, target.y);
       if(path){
-        let budget = m.speed;
+        let budget = effSpeed;
         let cx=m.x, cy=m.y;
         // Il mostro può ATTRAVERSARE la cella di un compagno, ma non può mai
         // terminare il movimento lì: teniamo traccia dell'ultima casella
@@ -927,7 +1115,14 @@ async function monsterAttackPhase(){
   state.animAttacker = null;
 
   const totalDef = totalStat('def');
-  const dmg = totalDef>0 ? Math.floor(totalAtk/totalDef) : totalAtk;
+  let dmg = totalDef>0 ? Math.floor(totalAtk/totalDef) : totalAtk;
+  // Dimezza i Danni Subiti (Carte Oggetto): dimezza il danno finale di questo
+  // turno, arrotondando per eccesso (es. 3 → 2).
+  let halved = false;
+  if(state.halveDamageThisTurn && dmg>0){
+    dmg = Math.ceil(dmg/2);
+    halved = true;
+  }
   if(attackers.length===0){
     log(`Nessun mostro è in Gittata e Linea di Vista: nessun attacco subito.`);
   } else if(dmg<=0){
@@ -935,7 +1130,7 @@ async function monsterAttackPhase(){
     spawnFloatText(state.player.x, state.player.y, 'Miss', 'miss');
   } else {
     state.hp = Math.max(0, state.hp-dmg);
-    log(`I mostri attaccano (${totalAtk} Attacco vs ${totalDef} Difesa): subisci ${dmg} danni. Salute: ${state.hp}/${state.maxHp}`);
+    log(`I mostri attaccano (${totalAtk} Attacco vs ${totalDef} Difesa): subisci ${dmg} danni${halved?' (dimezzati)':''}. Salute: ${state.hp}/${state.maxHp}`);
     spawnFloatText(state.player.x, state.player.y, '-'+dmg, 'dmg');
   }
   render();
@@ -946,13 +1141,28 @@ async function endTurn(){
   state.animating = true;
   render();
 
-  await monsterMovementPhase();
-  await monsterAttackPhase();
+  // Clessidra (Carte Oggetto): salta COMPLETAMENTE la Fase Mostri (movimento
+  // e attacco), tocca di nuovo a te con una Fase Energia tutta nuova.
+  if(state.skipMonstersThisTurn){
+    log(`⏳ La Fase Mostri viene saltata: tocca di nuovo a te.`);
+  } else {
+    await monsterMovementPhase();
+    await monsterAttackPhase();
+  }
 
   state.animating = false;
   state.dice=[]; state.points={speed:0,atk:0,def:0,range:0}; state.spent={speed:0,atk:0};
   state.selectedMonster=null; state.selectedChest=null; state.phase='roll';
   state.lootUsedStat = null; state.lootDieActive = false;
+  // Reset dei bonus/flag "per turno" delle Carte Oggetto — comprese quelle
+  // eventualmente non consumate (es. Testa della Gorgona resa inutile da
+  // Clessidra nello stesso turno: la carta è comunque già stata scartata).
+  state.itemBonus = {speed:0, atk:0, def:0, range:0};
+  state.halveDamageThisTurn = false;
+  state.monsterSpeedOverride = null;
+  state.skipMonstersThisTurn = false;
+  state.blackPowderArmed = false;
+  state.flameFateMode = false; state.flameFateSelected = [];
 
   if(state.hp<=0){ render(); showGameOver(); return; }
   if(state.monsters.every(m=>!m.alive)){ render(); onLevelClear(); return; }
@@ -963,7 +1173,7 @@ async function endTurn(){
 // 3-6-9-12 si "espandono" in una seconda fase (il Boss) PRIMA della normale
 // schermata "potenzia/cura", che viene quindi posticipata a dopo il Boss.
 function onLevelClear(){
-  if(state.expansion==='mguf_yn_returns' && state.levelPhase==='normal' && BOSS_LEVELS.has(state.level)){
+  if(state.expansions.includes('mguf_yn_returns') && state.levelPhase==='normal' && BOSS_LEVELS.has(state.level)){
     state.levelPhase = 'boss';
     spawnLevel(state.level);
     return;
@@ -1002,6 +1212,33 @@ function showClassSelect(){
     list.appendChild(b);
   });
   m.querySelector('#classCloseBtn').onclick = ()=>{ bg.classList.add('hidden'); };
+  bg.classList.remove('hidden');
+}
+
+// Pannello Carte Oggetto: mostra le carte ancora in mano, con un bottone
+// "Usa" attivo solo per quelle davvero giocabili nel momento attuale (fase
+// di gioco corretta, condizioni soddisfatte). Le carte consumate spariscono
+// dall'elenco (vedi discardCard()).
+function showItemCards(){
+  if(!state.itemCards.length) return;
+  const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  m.innerHTML = `
+    <button class="modal-close" id="cardsCloseBtn" aria-label="Chiudi">✕</button>
+    <h2>🃏 Le tue Carte</h2>
+    <div id="cardsList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+  `;
+  const list = m.querySelector('#cardsList');
+  state.itemCards.forEach(id=>{
+    const c = ITEM_CARDS[id];
+    const usable = c.usable();
+    const b=document.createElement('button');
+    b.className='btn secondary'+(!usable?' disabled':'');
+    b.style.textAlign='left';
+    b.innerHTML = `<div style="font-family:'Cinzel',serif;">${c.icon} ${c.name}</div><div style="font-family:'IM Fell English',serif; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${c.desc}</div>`;
+    if(usable) b.onclick = ()=>{ bg.classList.add('hidden'); c.use(); };
+    list.appendChild(b);
+  });
+  m.querySelector('#cardsCloseBtn').onclick = ()=>{ bg.classList.add('hidden'); };
   bg.classList.remove('hidden');
 }
 
@@ -1081,7 +1318,7 @@ function showGameOver(){
 function showVictory(){
   finishRun();
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
-  const bossVictory = state.expansion==='mguf_yn_returns' && state.levelPhase==='boss';
+  const bossVictory = state.expansions.includes('mguf_yn_returns') && state.levelPhase==='boss';
   m.innerHTML = `<h2 style="color:var(--gold-bright)">👑 Vittoria!</h2>
     <p>${bossVictory
       ? `Hai sconfitto <b>M'Guf-yn</b> in persona e riconquistato lo <b>Scettro</b>. Il tuo villaggio è salvo!`
@@ -1121,20 +1358,31 @@ function renderStats(){
     range: (canAssign && rangerAvail && !rangeTaken && !speedTaken) || (lootActive && lootFree('range')),
   };
 
-  function statBox(id,label,val,bonus){
+  function statBox(id,label,val,diceBonus,cardBonus){
     const active = targetable[id];
-    const shown = val + (bonus||0);
+    const totalBonus = (diceBonus||0) + (cardBonus||0);
+    const shown = val + totalBonus;
     return `<div class="stat${active?' target-active':''}" data-stat="${id}">
-      <div class="lbl">${label}</div><div class="val${bonus?' boosted':''}">${shown}</div>
+      <div class="lbl">${label}</div><div class="val${totalBonus?' boosted':''}">${shown}</div>
     </div>`;
   }
 
   row.innerHTML =
     `<div class="stat hp"><div class="lbl">Salute</div><div class="val">${state.hp}/${state.maxHp}</div></div>` +
-    statBox('speed','Velocità', state.skills.speed, state.points.speed) +
-    statBox('atk','Attacco', state.skills.atk, state.points.atk) +
-    statBox('def','Difesa', state.skills.def, state.points.def) +
-    statBox('range','Gittata', state.skills.range, state.points.range);
+    statBox('speed','Velocità', state.skills.speed, state.points.speed, itemSpeedBonus()) +
+    statBox('atk','Attacco', state.skills.atk, state.points.atk, itemAtkBonus()) +
+    statBox('def','Difesa', state.skills.def, state.points.def, 0) +
+    statBox('range','Gittata', state.skills.range, state.points.range, itemRangeBonus());
+
+  // Carte Oggetto: colonna verde, presente SOLO finché resta almeno una
+  // carta in mano — scompare del tutto quando il contatore arriva a 0.
+  if(state.expansions && state.expansions.includes('item_cards') && state.itemCards.length>0){
+    const cardsBox = document.createElement('div');
+    cardsBox.className = 'stat cards-stat';
+    cardsBox.innerHTML = `<div class="lbl">Carte</div><div class="val">${state.itemCards.length}</div>`;
+    cardsBox.onclick = showItemCards;
+    row.appendChild(cardsBox);
+  }
 
   row.querySelectorAll('.stat[data-stat]').forEach(el=>{
     const st = el.dataset.stat;
@@ -1164,16 +1412,32 @@ function renderDice(){
       assignRow.appendChild(wrap);
     }
   } else if(state.phase==='assign'){
-    label.textContent = state.selectedDie===null && !state.lootDieActive
-      ? 'Tocca un dado, poi la caratteristica evidenziata'
-      : 'Ora tocca la caratteristica in alto a cui assegnarlo';
+    label.textContent = state.flameFateMode
+      ? 'Fiamma del Fato: tocca i dadi non assegnati da rilanciare'
+      : (state.selectedDie===null && !state.lootDieActive
+        ? 'Tocca un dado, poi la caratteristica evidenziata'
+        : 'Ora tocca la caratteristica in alto a cui assegnarlo');
     state.dice.forEach((d,i)=>{
       const el=document.createElement('div');
-      el.className='die'+(d.target?' used':'')+(state.selectedDie===i?' selected':'');
+      const flameSelectable = state.flameFateMode && !d.target;
+      const flameSelected = flameSelectable && state.flameFateSelected.includes(i);
+      el.className='die'+(d.target?' used':'')+(state.selectedDie===i?' selected':'')+(flameSelected?' flame-selected':'')+(d.isD12?' d12':'');
       el.textContent=d.value;
-      el.onclick=()=>selectDie(i);
+      el.onclick = flameSelectable ? ()=>toggleFlameFateDie(i) : ()=>selectDie(i);
       row.appendChild(el);
     });
+    // Fiamma del Fato (Carte Oggetto): modalità di selezione dadi da rilanciare
+    if(state.flameFateMode){
+      const confirmBtn=document.createElement('button');
+      confirmBtn.className='assign-btn'+(state.flameFateSelected.length?'':' disabled');
+      confirmBtn.textContent=`🔥 Rilancia (${state.flameFateSelected.length})`;
+      if(state.flameFateSelected.length) confirmBtn.onclick=confirmFlameFate;
+      assignRow.appendChild(confirmBtn);
+      const cancelBtn=document.createElement('button');
+      cancelBtn.className='assign-btn'; cancelBtn.textContent='Annulla';
+      cancelBtn.onclick=cancelFlameFate;
+      assignRow.appendChild(cancelBtn);
+    }
     // Mago: reroll-all, only before any die is assigned
     if(state.class==='wizard' && !state.abilityUsed.wizard && !state.dice.some(d=>d.target)){
       const b=document.createElement('button');
@@ -1219,7 +1483,7 @@ function renderDice(){
     // La conferma per proseguire con il Bottino ancora disponibile si fa ora
     // dal bottone verde in basso ("Continua →"), non più da qui.
   } else if(state.phase==='act'){
-    label.textContent = `Velocità disp. ${totalStat('speed')-state.spent.speed} · Attacco disp. ${totalStat('atk')-state.spent.atk}`;
+    label.textContent = `Velocità disp. ${totalStat('speed')+itemSpeedBonus()-state.spent.speed} · Attacco disp. ${totalStat('atk')+itemAtkBonus()-state.spent.atk}`;
     // Negromante: una volta per Livello, −1 Salute per 1 danno che ignora la
     // Difesa a un nemico in Gittata + Linea di Vista (non a 1 Salute).
     if(state.class==='necromancer' && !state.abilityUsed.necromancer && state.hp>1){
@@ -1412,10 +1676,10 @@ function showExpansionSelect(){
   const render2 = ()=>{
     const active = loadActiveExpansions();
     m.innerHTML = `
+      <button class="modal-close" id="expCloseBtn" aria-label="Chiudi">✕</button>
       <h2>👑 Espansioni</h2>
-      <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita". Puoi cambiarle in qualsiasi momento da qui.</p>
+      <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita" (sono combinabili tra loro). Puoi cambiarle in qualsiasi momento da qui.</p>
       <div id="expList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
-      <button class="btn" id="closeExpansionsBtn" style="margin-top:14px;">Chiudi</button>
     `;
     const list = m.querySelector('#expList');
     Object.entries(EXPANSIONS).forEach(([id,e])=>{
@@ -1427,7 +1691,7 @@ function showExpansionSelect(){
       b.onclick = ()=>{ setExpansionActive(id, !isActive); render2(); };
       list.appendChild(b);
     });
-    m.querySelector('#closeExpansionsBtn').onclick = ()=>{ bg.classList.add('hidden'); };
+    m.querySelector('#expCloseBtn').onclick = ()=>{ bg.classList.add('hidden'); };
   };
   render2();
   bg.classList.remove('hidden');
@@ -1455,6 +1719,21 @@ document.getElementById('continueBtn2').onclick = ()=>{
   // In caso di salvataggio avvenuto a metà di un'animazione, si riparte "sbloccati".
   state.animating = false;
   state.animAttacker = null;
+  // Retrocompatibilità con salvataggi precedenti al refactor multi-espansione
+  // (avevano un singolo "expansion" invece di un array "expansions") e/o
+  // precedenti all'introduzione delle Carte Oggetto.
+  if(!Array.isArray(state.expansions)){
+    state.expansions = state.expansion ? [state.expansion] : [];
+  }
+  if(!Array.isArray(state.itemCards)) state.itemCards = [];
+  if(!state.itemBonus) state.itemBonus = {speed:0, atk:0, def:0, range:0};
+  if(state.halveDamageThisTurn===undefined) state.halveDamageThisTurn = false;
+  if(state.monsterSpeedOverride===undefined) state.monsterSpeedOverride = null;
+  if(state.skipMonstersThisTurn===undefined) state.skipMonstersThisTurn = false;
+  if(state.blackPowderArmed===undefined) state.blackPowderArmed = false;
+  if(state.dragonEyeArmed===undefined) state.dragonEyeArmed = false;
+  if(!Array.isArray(state.flameFateSelected)) state.flameFateSelected = [];
+  state.flameFateMode = false; // non si riprende mai a metà di una selezione
   showGame();
   render();
 };

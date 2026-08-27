@@ -187,3 +187,28 @@
   border-color:#8a6a1e;
 }
 .die.loot-die.selected{ outline:3px solid var(--gold-bright); transform:translateY(-3px); }
+
+/* ============================================================
+   CARTE OGGETTO
+   ============================================================ */
+
+/* Colonna "Carte" nella fascia stats: verde, per distinguerla dalle
+   caratteristiche normali. Scompare del tutto quando il contatore è 0 (gestito
+   lato JS, non qui). */
+.stat.cards-stat{ background:linear-gradient(180deg,#1e3a1c,#16290f); border-color:var(--moss); cursor:pointer; }
+.stat.cards-stat .lbl{ color:var(--green-bright); }
+.stat.cards-stat .val{ color:var(--green-bright); }
+
+/* Dado d12 (Occhio di Drago): stessa forma dei dadi normali, tinta violacea
+   per segnalare che non è un comune d6. */
+.die.d12{
+  background:linear-gradient(160deg,#e3d4ff,#a98be0); color:#2a1a40;
+  box-shadow:0 3px 0 #5c3d8a, 0 4px 8px rgba(0,0,0,.5), 0 0 10px rgba(169,139,224,.5);
+  border-color:#5c3d8a;
+}
+
+/* Dado selezionato per il rilancio con Fiamma del Fato */
+.die.flame-selected{ outline:3px solid var(--blood-bright); box-shadow:0 0 10px var(--blood-bright); }
+
+/* Bottone carta non giocabile ora nel pannello Carte */
+.btn.secondary.disabled{ opacity:.35; pointer-events:none; }
