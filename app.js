@@ -686,10 +686,11 @@ async function wizardReroll(){
   render();
 }
 
-// Barbaro: while at 1 Health, reroll all dice (usable every turn, once per turn).
+// Barbaro: while at 1 Health, reroll all dice (usable every turn, once per turn, before spending any).
 async function barbarianReroll(){
   if(state.class!=='barbarian' || state.hp!==1) return;
   if(state.phase!=='assign' || state.barbarianUsedThisTurn || state.animating) return;
+  if(state.dice.some(d=>d.target)) return;
   state.animating = true;
   render();
   state.points = {speed:0,atk:0,def:0,range:0};
@@ -1463,8 +1464,8 @@ function renderDice(){
       b.onclick=wizardReroll;
       assignRow.appendChild(b);
     }
-    // Barbaro: reroll-all while at 1 Health, once per turn
-    if(state.class==='barbarian' && state.hp===1 && !state.barbarianUsedThisTurn){
+    // Barbaro: reroll-all while at 1 Health, once per turn, only before any die is assigned
+    if(state.class==='barbarian' && state.hp===1 && !state.barbarianUsedThisTurn && !state.dice.some(d=>d.target)){
       const b=document.createElement('button');
       b.className='assign-btn'; b.textContent='🪓 Rilancia tutti (Barbaro)';
       b.onclick=barbarianReroll;
