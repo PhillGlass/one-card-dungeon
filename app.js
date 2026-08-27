@@ -195,7 +195,7 @@ const ITEM_CARDS = {
   gorgon_head: {
     name: "Testa della Gorgona", icon: "🐍", expansion:'item_cards',
     desc: "Per questo turno, tutti i mostri hanno Velocità 0 (restano fermi, ma attaccano normalmente se già in Gittata).",
-    usable: ()=> !state.animating,
+    usable: ()=> state.phase==='act' && !state.animating,
     use(){
       state.monsterSpeedOverride = 0;
       log('🐍 Testa della Gorgona: i mostri restano fermi questo turno.');
@@ -747,16 +747,25 @@ function cancelFlameFate(){
   state.flameFateMode = false; state.flameFateSelected = [];
   render();
 }
-function confirmFlameFate(){
+async function confirmFlameFate(){
   if(state.animating || !state.flameFateSelected.length) return;
-  state.flameFateSelected.forEach(i=>{
-    const d = state.dice[i];
-    d.value = d.isD12 ? (1+Math.floor(Math.random()*12)) : (1+Math.floor(Math.random()*6));
-  });
-  log(`🔥 Fiamma del Fato: rilanci ${state.flameFateSelected.length} dado/i. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
+  state.animating = true;
+  render();
+  const selected = state.flameFateSelected.slice();
+  // Calcoliamo già ora i nuovi valori finali, così l'animazione mostra il
+  // vero "tiro" (i dadi non selezionati restano fermi al valore attuale).
+  const diceForAnim = state.dice.map((d,i)=>({
+    value: selected.includes(i) ? (d.isD12 ? 1+Math.floor(Math.random()*12) : 1+Math.floor(Math.random()*6)) : d.value,
+    isD12: d.isD12,
+  }));
+  const lockedIndices = state.dice.map((d,i)=>i).filter(i=>!selected.includes(i));
+  await animateDiceRoll(diceForAnim, lockedIndices);
+  selected.forEach(i=>{ state.dice[i].value = diceForAnim[i].value; });
+  log(`🔥 Fiamma del Fato: rilanci ${selected.length} dado/i. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
   state.flameFateMode = false; state.flameFateSelected = [];
   state.clericBoostUsed = false; // nuovi valori: il Chierico può ricontrollare il tris
   discardCard('flame_of_fate');
+  state.animating = false;
   render();
 }
 
