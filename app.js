@@ -1376,7 +1376,11 @@ function renderStats(){
 
   // Carte Oggetto: colonna verde, presente SOLO finché resta almeno una
   // carta in mano — scompare del tutto quando il contatore arriva a 0.
-  if(state.expansions && state.expansions.includes('item_cards') && state.itemCards.length>0){
+  // La fascia passa da 5 a 6 colonne (classe "has-cards") così la colonna
+  // Carte resta sulla STESSA riga delle altre, invece di andare a capo.
+  const showCards = state.expansions && state.expansions.includes('item_cards') && state.itemCards.length>0;
+  row.classList.toggle('has-cards', showCards);
+  if(showCards){
     const cardsBox = document.createElement('div');
     cardsBox.className = 'stat cards-stat';
     cardsBox.innerHTML = `<div class="lbl">Carte</div><div class="val">${state.itemCards.length}</div>`;

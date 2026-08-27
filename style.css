@@ -27,6 +27,7 @@
   .level-banner{ margin-top:6px; font-family:'Cinzel', serif; font-size:.8rem; letter-spacing:.06em; color:var(--ember); text-align:center; text-transform:uppercase; }
 
   .stats{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:10px 0 8px; }
+  .stats.has-cards{ grid-template-columns:repeat(6,1fr); }
   .stat{ background:var(--stone-2); border:1px solid #493c30; border-radius:8px; padding:5px 2px 6px; text-align:center; }
   .stat .lbl{ font-family:'Cinzel',serif; font-size:.52rem; letter-spacing:.04em; color:var(--parchment-dim); text-transform:uppercase; }
   .stat .val{ font-size:1.05rem; font-weight:700; color:var(--gold-bright); line-height:1.3; }
