@@ -306,10 +306,15 @@ function updateRecordIfHigher(rank, expansionKey){
 }
 // Una "partita completata" è una run finita (morte o vittoria): a quel punto
 // si aggiorna il record (della modalità giocata) col livello/fase raggiunti,
-// e si azzera la partita salvata.
+// e si azzera la partita salvata. Le Carte Oggetto NON registrano alcun
+// record (né vanilla né M'Guf-yn Returns): una run con questo modulo attivo
+// non è direttamente comparabile alle altre, quindi si salta l'aggiornamento.
 function finishRun(){
   const rank = levelRank(state.level, state.levelPhase);
-  updateRecordIfHigher(rank, modeKeyFor(state.expansions));
+  const usesItemCards = state.expansions && state.expansions.includes('item_cards');
+  if(!usesItemCards){
+    updateRecordIfHigher(rank, modeKeyFor(state.expansions));
+  }
   clearSave();
 }
 
