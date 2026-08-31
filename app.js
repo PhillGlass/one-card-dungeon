@@ -1630,7 +1630,8 @@ function renderGrid(){
 
       if(isPlayer){
         cell.classList.add('player');
-        cell.innerHTML = `<span class="token">🧙</span><span class="hp-badge">${state.hp}</span>`;
+        const clsInfo = CLASSES[state.class] || CLASSES.none;
+        cell.innerHTML = `${tokenMarkup(clsInfo.icon, clsInfo.img ? `classes/${clsInfo.img}` : null, 'player-token')}<span class="hp-badge">${state.hp}</span>`;
       } else if(monster){
         cell.innerHTML = `${tokenMarkup(monster.icon, monster.img, monster.isBoss?'boss-token':'')}<span class="hp-badge">${monster.hp}</span>`;
       } else if(isChestCell){
