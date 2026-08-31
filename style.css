@@ -164,8 +164,8 @@
   .choice-row{ display:flex; gap:8px; margin:12px 0; }
   .choice-row .btn{ font-size:.68rem; }
   .skill-choice{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
-  .skill-choice button{ font-family:'Cinzel',serif; font-size:.72rem; text-transform:uppercase; padding:10px 4px; border-radius:8px; border:1px solid var(--gold); background:var(--stone-2); color:var(--parchment); }
-  .skill-choice button.picked{ background:var(--gold); color:#221a12; }
+  .skill-choice button, .heal-btn{ font-family:'Cinzel',serif; font-size:.72rem; text-transform:uppercase; padding:10px 4px; border-radius:8px; border:1px solid var(--gold); background:var(--stone-2); color:var(--parchment); width:100%; cursor:pointer; }
+  .skill-choice button.picked, .heal-btn.picked{ background:var(--gold); color:#221a12; }
   .hidden{ display:none !important; }
 
   header{ position:relative; }

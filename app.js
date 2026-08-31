@@ -1268,7 +1268,7 @@ function showLevelUp(){
       <button data-s="def">${skillLabels.def} (${state.skills.def})</button>
       <button data-s="range">${skillLabels.range} (${state.skills.range})</button>
     </div>
-    <button class="btn gold" id="healBtn">${healLabel}</button>
+    <button class="heal-btn" id="healBtn">${healLabel}</button>
     <button class="btn" id="continueBtn" style="margin-top:8px;" disabled>Scendi al Livello ${state.level+1}</button>
   `;
   bg.classList.remove('hidden');
