@@ -362,7 +362,7 @@ function startRun(cls){
     entryStair: {x:0,y:0}, exitStair: {x:GRID-1,y:GRID-1},
     monsters: [],
     chest: null, loot: 0, lootUsedStat: null, lootDieActive: false,
-    knightMode: false, clericBoostUsed: false,
+    clericBoostUsed: false,
     selectedDie: null, selectedMonster: null, selectedChest: null,
     prevDice: [],
     abilityUsed: { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false },
@@ -489,7 +489,7 @@ function spawnLevel(lvl){
   state.prevDice = [];
   state.abilityUsed = { paladin:false, ranger:false, wizard:false, necromancer:false, knight:false, thief:false };
   state.barbarianUsedThisTurn = false;
-  state.lootUsedStat = null; state.lootDieActive = false; state.knightMode = false; state.clericBoostUsed = false;
+  state.lootUsedStat = null; state.lootDieActive = false; state.clericBoostUsed = false;
   // Carte Oggetto: bonus/flag "per turno" azzerati anche a inizio livello.
   state.itemBonus = {speed:0, atk:0, def:0, range:0};
   state.halveDamageThisTurn = false; state.monsterSpeedOverride = null;
@@ -803,20 +803,13 @@ function incrementLoot(stat){
   render();
 }
 
-// Cavaliere: una volta per Livello può "armare" l'abilità che gli permette di
-// assegnare un SECONDO dado a una caratteristica già occupata (sommandone i
-// valori); il terzo dado va comunque su una caratteristica diversa.
-function toggleKnightMode(){
-  if(state.class!=='knight' || state.abilityUsed.knight) return;
-  if(state.phase!=='assign' || state.animating) return;
-  state.knightMode = !state.knightMode;
-  render();
-}
-
 // Regola ufficiale: un solo dado per caratteristica (niente somma di più dadi
 // sulla stessa voce), e la Gittata del Ranger sostituisce la Velocità per il
 // turno — non si possono usare entrambe nello stesso turno. Eccezione: il
-// Cavaliere, una volta per Livello, può raddoppiare una caratteristica.
+// Cavaliere, una volta per Livello, può raddoppiare una caratteristica —
+// l'abilità è sempre "pronta" (nessun bottone da attivare prima): basta
+// toccare con un dado selezionato una caratteristica già occupata, finché
+// non è già stata usata in questo livello.
 function assignTo(stat){
   if(state.animating) return;
   if(state.selectedDie===null) return;
@@ -830,7 +823,7 @@ function assignTo(stat){
 
   // L'abilità Cavaliere si applica solo a velocità/attacco/difesa (mai a
   // gittata, che comunque solo il Ranger può mai bersagliare con un dado).
-  const knightDouble = state.knightMode && !state.abilityUsed.knight &&
+  const knightDouble = state.class==='knight' && !state.abilityUsed.knight &&
     ((stat==='speed'&&speedTaken) || (stat==='atk'&&atkTaken) || (stat==='def'&&defTaken));
 
   if(stat==='speed' && (speedTaken || rangeTaken) && !knightDouble) return;
@@ -848,7 +841,6 @@ function assignTo(stat){
   state.selectedDie = null;
   if(knightDouble){
     state.abilityUsed.knight = true;
-    state.knightMode = false;
     log(`🐴 Abilità Cavaliere: secondo dado (${d.value}) sommato sulla stessa caratteristica.`);
   }
   maybeAdvanceToAct(false);
@@ -1357,27 +1349,37 @@ function renderStats(){
   const defTaken   = state.dice.some(d=>d.target==='def');
   const rangeTaken = state.dice.some(d=>d.target==='range');
   const rangerAvail = state.class==='ranger' && !state.abilityUsed.ranger;
-  // Cavaliere: con l'abilità "armata", una caratteristica già assegnata resta
-  // comunque bersagliabile per il secondo dado (una sola volta per Livello).
-  const knightAvail = state.knightMode && !state.abilityUsed.knight;
+  // Cavaliere: l'abilità è sempre "pronta" (nessun bottone da attivare prima)
+  // finché non è già stata usata in questo livello.
+  const knightAvail = state.class==='knight' && !state.abilityUsed.knight;
   // Dado Tesoro attivo: ogni caratteristica non ancora "bloccata" su un'altra
   // (regola: un solo valore per turno) diventa bersagliabile, SENZA i vincoli
   // del Ranger — il Bottino può andare su una qualsiasi delle quattro.
   const lootActive = !!state.lootDieActive && (state.phase==='roll'||state.phase==='assign') && !state.animating && state.loot>0;
   const lootFree = (s)=> !state.lootUsedStat || state.lootUsedStat===s;
 
+  // Evidenziazione "normale" (bordo ember): prima assegnazione di un dado a
+  // una caratteristica libera, o Bottino tramite il Dado Tesoro.
   const targetable = {
-    speed: (canAssign && (!speedTaken || knightAvail) && !rangeTaken) || (lootActive && lootFree('speed')),
-    atk:   (canAssign && (!atkTaken || knightAvail)) || (lootActive && lootFree('atk')),
-    def:   (canAssign && (!defTaken || knightAvail)) || (lootActive && lootFree('def')),
-    range: (canAssign && rangerAvail && !rangeTaken && !speedTaken) || (lootActive && lootFree('range')),
+    speed: (canAssign && !speedTaken && !rangeTaken) || (lootActive && lootFree('speed')),
+    atk:   (canAssign && !atkTaken) || (lootActive && lootFree('atk')),
+    def:   (canAssign && !defTaken) || (lootActive && lootFree('def')),
+    range: (lootActive && lootFree('range')),
+  };
+  // Evidenziazione "abilità" (bordo blu): Gittata del Ranger, e caratteristica
+  // GIÀ occupata che il Cavaliere può raddoppiare.
+  const targetableAbility = {
+    speed: canAssign && knightAvail && speedTaken,
+    atk:   canAssign && knightAvail && atkTaken,
+    def:   canAssign && knightAvail && defTaken,
+    range: canAssign && rangerAvail && !rangeTaken && !speedTaken,
   };
 
   function statBox(id,label,val,diceBonus,cardBonus){
-    const active = targetable[id];
+    const cls = targetableAbility[id] ? ' target-active-ability' : (targetable[id] ? ' target-active' : '');
     const totalBonus = (diceBonus||0) + (cardBonus||0);
     const shown = val + totalBonus;
-    return `<div class="stat${active?' target-active':''}" data-stat="${id}">
+    return `<div class="stat${cls}" data-stat="${id}">
       <div class="lbl">${label}</div><div class="val${totalBonus?' boosted':''}">${shown}</div>
     </div>`;
   }
@@ -1405,7 +1407,7 @@ function renderStats(){
 
   row.querySelectorAll('.stat[data-stat]').forEach(el=>{
     const st = el.dataset.stat;
-    if(targetable[st]) el.onclick = ()=> (state.lootDieActive ? incrementLoot(st) : assignTo(st));
+    if(targetable[st] || targetableAbility[st]) el.onclick = ()=> (state.lootDieActive ? incrementLoot(st) : assignTo(st));
   });
 }
 
@@ -1488,17 +1490,8 @@ function renderDice(){
       b.onclick=thiefBoost;
       assignRow.appendChild(b);
     }
-    // Cavaliere: arma/disarma l'abilità che permette un secondo dado sulla
-    // stessa caratteristica (si applica poi toccando le caratteristiche sopra)
-    if(state.class==='knight' && !state.abilityUsed.knight){
-      const b=document.createElement('button');
-      b.className='assign-btn'+(state.knightMode?' selected':'');
-      b.textContent = state.knightMode
-        ? '🐴 Abilità attiva — tocca una caratteristica già scelta'
-        : '🐴 Raddoppia una caratteristica (Cavaliere)';
-      b.onclick=toggleKnightMode;
-      assignRow.appendChild(b);
-    }
+    // Cavaliere: nessun bottone — l'abilità è sempre "pronta" (vedi bordo blu
+    // sulle caratteristiche già occupate in renderStats()) finché non usata.
     // La conferma per proseguire con il Bottino ancora disponibile si fa ora
     // dal bottone verde in basso ("Continua →"), non più da qui.
   } else if(state.phase==='act'){
