@@ -96,14 +96,25 @@
   @keyframes dieSettle{ 0%{ transform:scale(1.4);} 100%{ transform:scale(1);} }
   .grid{ display:grid; gap:4px; background:#0e0b09; padding:5px; border-radius:10px; border:2px solid #493c30;
     width:100%; height:100%; }
-  .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:hidden; }
+  /* overflow:visible (non hidden): le immagini PNG dei nemici/boss sono
+     ancorate al bordo inferiore della cella e devono poter sbordare verso
+     l'alto quando la scacchiera si comprime in altezza — vedi .token-img
+     e lo z-index per riga assegnato in JS (renderGrid) per la profondità. */
+  .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:visible; }
   .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; }
   .cell.stair{ background:#26332a; }
   .cell.reachable{ background:#2c3826; box-shadow:inset 0 0 0 2px var(--moss); }
   .cell.attackable{ background:#3a2422; box-shadow:inset 0 0 0 2px var(--blood-bright); }
   .cell.selected-monster{ box-shadow:inset 0 0 0 2px var(--gold-bright); }
   .cell .token{ font-size:1.35rem; filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
-  .cell .hp-badge{ position:absolute; bottom:1px; right:1px; background:rgba(0,0,0,.75); color:var(--parchment); font-size:.7rem; font-family:'Cinzel',serif; padding:1px 3px; border-radius:5px; line-height:1.2; }
+  /* Immagine PNG al posto dell'emoji: larga quanto la cella, altezza
+     proporzionale, ancorata al bordo inferiore. Essendo assoluta rispetto
+     a .cell (position:relative) e con height:auto, la sua altezza dipende
+     solo dalla larghezza (che non si riduce mai) e non dall'altezza della
+     cella: se la cella si comprime, l'immagine resta della sua dimensione
+     naturale e sbora verso l'alto invece di rimpicciolirsi. */
+  .cell .token-img{ position:absolute; left:0; bottom:0; width:100%; height:auto; display:block; pointer-events:none; filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+  .cell .hp-badge{ position:absolute; bottom:1px; right:1px; background:rgba(0,0,0,.75); color:var(--parchment); font-size:.7rem; font-family:'Cinzel',serif; padding:1px 3px; border-radius:5px; line-height:1.2; z-index:1; }
   .cell.player .hp-badge{ color:var(--blood-bright); background:rgba(0,0,0,.85);}
 
   .inspect{ background:rgba(0,0,0,.3); border:1px solid #493c30; border-radius:9px; padding:8px 10px; margin-top:8px; min-height:40px; font-size:.75rem; }
@@ -178,6 +189,9 @@
   .splash-title{ font-family:'Cinzel Decorative',serif; text-align:center; font-size:1.9rem; line-height:1.2; color:var(--gold-bright); letter-spacing:.04em; text-shadow:0 3px 0 #000; margin:4px 0 0; }
   #splashScreen .sub{ padding-top:4px; }
   .splash-hero-icon{ text-align:center; font-size:2.4rem; margin-top:10px; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
+  /* Ritratto PNG della classe (se disponibile) al posto dell'emoji: altezza
+     fissa, proporzioni mantenute, stesso drop-shadow dell'emoji che sostituisce. */
+  .splash-hero-icon .token-img{ height:84px; width:auto; display:inline-block; vertical-align:middle; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
   .record-line{ text-align:center; font-family:'Cinzel',serif; font-size:.78rem; letter-spacing:.03em; color:var(--gold-bright); padding:2px 0; }
   #splashScreen{ display:flex; flex-direction:column; min-height:calc(100vh - 42px); }
   .splash-bottom{ margin-top:auto; display:flex; flex-direction:column; align-items:stretch; }
@@ -216,8 +230,12 @@
 /* Selezione espansione in home (stesso trattamento del "picked" per le classi) */
 .btn.secondary.picked{ outline:3px solid var(--gold-bright); box-shadow:0 0 10px var(--gold-bright); }
 
-/* Boss: leggero bagliore dorato sul token, per distinguerlo a colpo d'occhio */
+/* Boss: leggero bagliore dorato sul token, per distinguerlo a colpo d'occhio.
+   La versione ".cell .token-img.boss-token" (più specifica di ".cell
+   .token-img") serve a non perdere il bagliore quando il boss usa un'
+   immagine PNG invece dell'emoji. */
 .boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
+.cell .token-img.boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
 
 /* Cassa del Tesoro: nessun bordo fisso — proprio come i mostri (bordo rosso
    solo se attaccabili), qui il bordo compare SOLO quando è davvero in

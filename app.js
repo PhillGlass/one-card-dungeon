@@ -95,38 +95,99 @@ function hasLoS(ax,ay,bx,by,blockingTiles){
 const GRID = 5;
 const MAX_LEVEL = 12;
 
+/* ============================================================
+   IMMAGINI (PNG) — caricamento automatico con fallback emoji
+   ------------------------------------------------------------
+   Nemici, boss e classi possono avere un'immagine PNG al posto
+   dell'emoji. I file attesi (definiti in MONSTER_TABLE, BOSS_TABLE
+   e CLASSES tramite la proprietà "img") vivono in:
+     images/enemies/  images/bosses/  images/classes/
+   Non serve alcun elenco/registro da aggiornare: all'avvio il
+   gioco prova a caricare ciascun file atteso; se il file esiste
+   viene ricordato come "disponibile" e usato da quel momento in
+   poi, altrimenti resta l'emoji come oggi. Basta quindi caricare
+   il png con il nome giusto nella cartella giusta perché il gioco
+   lo riconosca in automatico al prossimo caricamento/refresh.
+   ============================================================ */
+const IMG_BASE = 'images/';
+const imgStatus = {};      // "cartella/file.png" -> true (disponibile) | false (assente)
+let imgRerenderQueued = false;
+
+function preloadImg(relPath){
+  if(!relPath || (relPath in imgStatus)) return;
+  const im = new Image();
+  im.onload = ()=>{ imgStatus[relPath] = true; queueImgRerender(); };
+  im.onerror = ()=>{ imgStatus[relPath] = false; };
+  im.src = IMG_BASE + relPath;
+}
+
+// Un'immagine può finire di caricare (async) dopo il primo render: quando
+// succede, ri-disegniamo la schermata attualmente visibile così l'emoji
+// viene sostituita dal png senza bisogno di un refresh manuale.
+function queueImgRerender(){
+  if(imgRerenderQueued) return;
+  imgRerenderQueued = true;
+  requestAnimationFrame(()=>{
+    imgRerenderQueued = false;
+    const gameScreen = document.getElementById('gameScreen');
+    const splashScreen = document.getElementById('splashScreen');
+    if(gameScreen && !gameScreen.classList.contains('hidden')) render();
+    if(splashScreen && !splashScreen.classList.contains('hidden')) renderSplash();
+  });
+}
+
+// Markup per un token (nemico, boss, eroe in home): usa il png se disponibile,
+// altrimenti l'emoji, esattamente come oggi.
+function tokenMarkup(emoji, relPath, extraClass){
+  const cls = extraClass ? ' '+extraClass : '';
+  if(relPath && imgStatus[relPath]){
+    return `<img class="token-img${cls}" src="${IMG_BASE}${relPath}" alt="">`;
+  }
+  return `<span class="token${cls}">${emoji}</span>`;
+}
+
+function preloadAllGameImages(){
+  Object.values(MONSTER_TABLE).forEach(m=>{ if(m.img) preloadImg(`enemies/${m.img}`); });
+  Object.values(BOSS_TABLE).forEach(b=>{ if(b.img) preloadImg(`bosses/${b.img}`); });
+  Object.values(CLASSES).forEach(c=>{ if(c.img) preloadImg(`classes/${c.img}`); });
+}
+
 // Level 1 è confermato dalla carta ufficiale: 2 Ragni, Salute 2, Gittata 3, Difesa 4, Attacco 4, Velocità 5.
 // Livelli 2-12 forniti dall'utente dal regolamento ufficiale.
+// "img" = nome file atteso in images/enemies/ (usato al posto di "icon"
+// quando il file è disponibile — vedi sezione IMMAGINI più sotto).
 const MONSTER_TABLE = {
-  1:  { name:"Ragno",     icon:"🕷️", hp:2, speed:5, atk:4, def:4, range:3, count:2 },
-  2:  { name:"Scheletro", icon:"💀", hp:3, speed:4, atk:5, def:4, range:4, count:2 },
-  3:  { name:"Orco",      icon:"👹", hp:5, speed:3, atk:7, def:7, range:2, count:1 },
-  4:  { name:"Demone",    icon:"😈", hp:5, speed:5, atk:5, def:5, range:5, count:1 },
-  5:  { name:"Ragno",     icon:"🕷️", hp:2, speed:5, atk:4, def:4, range:3, count:3 },
-  6:  { name:"Scheletro", icon:"💀", hp:3, speed:4, atk:5, def:4, range:4, count:3 },
-  7:  { name:"Orco",      icon:"👹", hp:5, speed:3, atk:7, def:7, range:2, count:2 },
-  8:  { name:"Demone",    icon:"😈", hp:5, speed:5, atk:5, def:5, range:5, count:2 },
-  9:  { name:"Ragno",     icon:"🕷️", hp:2, speed:5, atk:4, def:4, range:3, count:4 },
-  10: { name:"Scheletro", icon:"💀", hp:3, speed:4, atk:5, def:4, range:4, count:4 },
-  11: { name:"Orco",      icon:"👹", hp:5, speed:3, atk:7, def:7, range:2, count:3 },
-  12: { name:"Demone",    icon:"😈", hp:5, speed:5, atk:5, def:5, range:5, count:3 },
+  1:  { name:"Ragno",     icon:"🕷️", img:"enemy_spider.png", hp:2, speed:5, atk:4, def:4, range:3, count:2 },
+  2:  { name:"Scheletro", icon:"💀", img:"enemy_undead.png", hp:3, speed:4, atk:5, def:4, range:4, count:2 },
+  3:  { name:"Orco",      icon:"👹", img:"enemy_orc.png",    hp:5, speed:3, atk:7, def:7, range:2, count:1 },
+  4:  { name:"Demone",    icon:"😈", img:"enemy_demon.png",  hp:5, speed:5, atk:5, def:5, range:5, count:1 },
+  5:  { name:"Ragno",     icon:"🕷️", img:"enemy_spider.png", hp:2, speed:5, atk:4, def:4, range:3, count:3 },
+  6:  { name:"Scheletro", icon:"💀", img:"enemy_undead.png", hp:3, speed:4, atk:5, def:4, range:4, count:3 },
+  7:  { name:"Orco",      icon:"👹", img:"enemy_orc.png",    hp:5, speed:3, atk:7, def:7, range:2, count:2 },
+  8:  { name:"Demone",    icon:"😈", img:"enemy_demon.png",  hp:5, speed:5, atk:5, def:5, range:5, count:2 },
+  9:  { name:"Ragno",     icon:"🕷️", img:"enemy_spider.png", hp:2, speed:5, atk:4, def:4, range:3, count:4 },
+  10: { name:"Scheletro", icon:"💀", img:"enemy_undead.png", hp:3, speed:4, atk:5, def:4, range:4, count:4 },
+  11: { name:"Orco",      icon:"👹", img:"enemy_orc.png",    hp:5, speed:3, atk:7, def:7, range:2, count:3 },
+  12: { name:"Demone",    icon:"😈", img:"enemy_demon.png",  hp:5, speed:5, atk:5, def:5, range:5, count:3 },
 };
 
 // Character classes from the official "Game Variant" section of the rulebook.
 // Le classi con "expansion" sono disponibili solo quando quella espansione è attiva.
+// "img" = nome file atteso in images/classes/ (usato al posto di "icon"
+// quando il file è disponibile — vedi sezione IMMAGINI più sotto).
 const CLASSES = {
-  none:      { name:"Classico",  icon:"🗡️", desc:"Nessuna abilità speciale — il gioco base, senza varianti." },
-  paladin:   { name:"Paladino",  icon:"🛡️", desc:"Una volta per Livello, puoi mantenere il valore di un dado Energia dal turno precedente invece di rilanciarlo." },
-  barbarian: { name:"Barbaro",   icon:"🪓", desc:"Quando sei a 1 Salute, puoi rilanciare tutti i dadi Energia (una volta per turno, senza limite di livello)." },
-  ranger:    { name:"Ranger",    icon:"🏹", desc:"Una volta per Livello, puoi assegnare un dado alla Gittata invece che alla Velocità." },
-  wizard:    { name:"Mago",      icon:"🔮", desc:"Una volta per Livello, puoi rilanciare tutti e tre i dadi Energia." },
-  necromancer: { name:"Negromante", icon:"🧛", expansion:"mguf_yn_returns",
+  none:      { name:"Classico",  icon:"🗡️", img:"class_classic.png",    desc:"Nessuna abilità speciale — il gioco base, senza varianti." },
+  paladin:   { name:"Paladino",  icon:"🛡️", img:"class_paladin.png",    desc:"Una volta per Livello, puoi mantenere il valore di un dado Energia dal turno precedente invece di rilanciarlo." },
+  barbarian: { name:"Barbaro",   icon:"🪓", img:"class_barbarian.png",  desc:"Quando sei a 1 Salute, puoi rilanciare tutti i dadi Energia (una volta per turno, senza limite di livello)." },
+  ranger:    { name:"Ranger",    icon:"🏹", img:"class_ranger.png",     desc:"Una volta per Livello, puoi assegnare un dado alla Gittata invece che alla Velocità." },
+  wizard:    { name:"Mago",      icon:"🔮", img:"class_wizard.png",     desc:"Una volta per Livello, puoi rilanciare tutti e tre i dadi Energia." },
+  necromancer: { name:"Negromante", icon:"🧛", img:"class_necromancer.png", expansion:"mguf_yn_returns",
     desc:"Una volta per Livello, durante l'Azione, puoi perdere 1 Salute per infliggere 1 danno (ignora la Difesa) a un nemico in Gittata e Linea di Vista." },
-  cleric: { name:"Chierico", icon:"✨", expansion:"mguf_yn_returns",
+  cleric: { name:"Chierico", icon:"✨", img:"class_cleric.png", expansion:"mguf_yn_returns",
     desc:"Ogni volta che i tre dadi Energia mostrano lo stesso valore, puoi aumentarli tutti di 2 (fino a un massimo di 6)." },
-  knight: { name:"Cavaliere", icon:"🐴", expansion:"mguf_yn_returns",
+  knight: { name:"Cavaliere", icon:"🐴", img:"class_knight.png", expansion:"mguf_yn_returns",
     desc:"Una volta per Livello, puoi assegnare due dei tre dadi Energia alla stessa caratteristica (sommandoli); il terzo dado va su un'altra caratteristica." },
-  thief: { name:"Ladro", icon:"🗝️", expansion:"mguf_yn_returns",
+  thief: { name:"Ladro", icon:"🗝️", img:"class_thief.png", expansion:"mguf_yn_returns",
     desc:"Una volta per Livello, puoi aumentare di 1 il valore di tutti e tre i dadi Energia lanciati (nessun tetto massimo)." },
 };
 
@@ -245,11 +306,13 @@ function itemSpeedBonus(){ return (state.itemBonus && state.itemBonus.speed) || 
 // sgominato i mostri del livello indicato (3, 6, 9, 12), prima di procedere
 // al livello successivo. "walls" = quante delle 8 celle adiacenti al centro
 // diventano Muro (posizione scelta a caso ad ogni run).
+// "img" = nome file atteso in images/bosses/ (usato al posto di "icon"
+// quando il file è disponibile — vedi sezione IMMAGINI più sotto).
 const BOSS_TABLE = {
-  3:  { name:"Minotauro", icon:"🐂", hp:7,  speed:3, atk:7, def:4, range:3, walls:2 },
-  6:  { name:"Lich",      icon:"💀", hp:8,  speed:3, atk:6, def:5, range:5, walls:3 },
-  9:  { name:"Insettoide",icon:"🦂", hp:10, speed:6, atk:7, def:6, range:3, walls:2 },
-  12: { name:"M'Guf-yn",  icon:"🧞", hp:12, speed:6, atk:8, def:7, range:6, walls:3 },
+  3:  { name:"Minotauro", icon:"🐂", img:"boss_minotaur.png",   hp:7,  speed:3, atk:7, def:4, range:3, walls:2 },
+  6:  { name:"Lich",      icon:"💀", img:"boss_lich.png",       hp:8,  speed:3, atk:6, def:5, range:5, walls:3 },
+  9:  { name:"Insettoide",icon:"🦂", img:"boss_insectoid.png",  hp:10, speed:6, atk:7, def:6, range:3, walls:2 },
+  12: { name:"M'Guf-yn",  icon:"🧞", img:"boss_mguf-yn.png",    hp:12, speed:6, atk:8, def:7, range:6, walls:3 },
 };
 const BOSS_LEVELS = new Set([3,6,9,12]);
 
@@ -435,7 +498,7 @@ function spawnNormalLevel(lvl){
       k=key(x,y); tries++;
     } while((used.has(k) || wallSet.has(k) || chebyshev(x,y,state.player.x,state.player.y)<2) && tries<200);
     used.add(k);
-    monsters.push({x,y,hp:t.hp,maxHp:t.hp,range:t.range,def:t.def,atk:t.atk,speed:t.speed,icon:t.icon,name:t.name,alive:true});
+    monsters.push({x,y,hp:t.hp,maxHp:t.hp,range:t.range,def:t.def,atk:t.atk,speed:t.speed,icon:t.icon,img:t.img?`enemies/${t.img}`:null,name:t.name,alive:true});
   }
   state.monsters = monsters;
 
@@ -465,7 +528,7 @@ function spawnBossLevel(lvl){
 
   state.monsters = [{
     x:cx, y:cy, hp:b.hp, maxHp:b.hp, range:b.range, def:b.def, atk:b.atk, speed:b.speed,
-    icon:b.icon, name:b.name, alive:true, isBoss:true,
+    icon:b.icon, img:b.img?`bosses/${b.img}`:null, name:b.name, alive:true, isBoss:true,
   }];
   // Nessuna cassa nei livelli boss.
 }
@@ -1539,6 +1602,12 @@ function renderGrid(){
     for(let x=0;x<GRID;x++){
       const cell=document.createElement('div');
       cell.className='cell';
+      // Le immagini PNG (a differenza delle emoji) sono ancorate al bordo
+      // inferiore della cella e possono "sbordare" verso l'alto quando la
+      // griglia si comprime in altezza. Perché la profondità risulti
+      // corretta, le righe più in basso devono stare visivamente sopra
+      // quelle più in alto (in primo piano rispetto a quelle dietro).
+      cell.style.zIndex = y+1;
       const k=key(x,y);
       const isWall = rawWallSet.has(k);
       const isChestCell = state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y;
@@ -1563,7 +1632,7 @@ function renderGrid(){
         cell.classList.add('player');
         cell.innerHTML = `<span class="token">🧙</span><span class="hp-badge">${state.hp}</span>`;
       } else if(monster){
-        cell.innerHTML = `<span class="token${monster.isBoss?' boss-token':''}">${monster.icon}</span><span class="hp-badge">${monster.hp}</span>`;
+        cell.innerHTML = `${tokenMarkup(monster.icon, monster.img, monster.isBoss?'boss-token':'')}<span class="hp-badge">${monster.hp}</span>`;
       } else if(isChestCell){
         cell.classList.add('chest');
         cell.innerHTML = `<span class="token">🎁</span><span class="chest-badge">${state.chest.roll}</span>`;
@@ -1669,6 +1738,15 @@ function renderSplash(){
     continueBtn.classList.add('hidden');
   }
 
+  // Icona dell'eroe in home: se c'è una partita salvata, l'immagine della
+  // classe in uso (fallback emoji se manca); altrimenti l'eroe "Classico"
+  // (fallback emoji se anche class_classic.png non è ancora disponibile).
+  const heroBox = document.getElementById('splashHeroIcon');
+  if(heroBox){
+    const cls = save ? (CLASSES[save.class] || CLASSES.none) : CLASSES.none;
+    heroBox.innerHTML = tokenMarkup(cls.icon, cls.img ? `classes/${cls.img}` : null, 'splash-hero-token');
+  }
+
   // Un record indipendente per modalità: vanilla + una riga per ogni espansione.
   const recordBox = document.getElementById('recordBox');
   const lines = [];
@@ -1762,6 +1840,12 @@ document.getElementById('resetBtn').onclick = ()=>{
 };
 
 document.getElementById('homeBtn').onclick = ()=>{ showSplash(); };
+
+// Avvia subito il tentativo di caricamento di tutte le immagini PNG
+// conosciute (nemici, boss, classi): non blocca nulla, semplicemente
+// quando/se un file risulta disponibile il gioco lo userà da quel
+// momento in poi al posto dell'emoji.
+preloadAllGameImages();
 
 // L'avvio della schermata iniziale è pilotato da cloud.js, DOPO che
 // l'utente ha effettuato il login e i dati sono stati caricati da Supabase.
