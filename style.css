@@ -187,7 +187,7 @@
     background:linear-gradient(180deg,#3a4a34,#293522); color:#fff3e2; font:inherit; }
   .cardpanel-row:disabled{ opacity:.45; cursor:default; }
   .cardpanel-icon{ width:52px; height:52px; min-width:52px; border-radius:6px; overflow:hidden;
-    display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.18); font-size:1.7rem; }
+    display:flex; align-items:center; justify-content:center; font-size:1.7rem; }
   .cardpanel-icon img{ width:100%; height:100%; object-fit:cover; }
   .cardpanel-body{ min-width:0; }
   .cardpanel-title{ font-family:'Cinzel',serif; font-weight:500; font-size:.72rem; letter-spacing:.08em; color:#fff3e2; }
