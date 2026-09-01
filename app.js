@@ -134,8 +134,10 @@ function queueImgRerender(){
     imgRerenderQueued = false;
     const gameScreen = document.getElementById('gameScreen');
     const splashScreen = document.getElementById('splashScreen');
+    const modalBg = document.getElementById('modalBg');
     if(gameScreen && !gameScreen.classList.contains('hidden')) render();
     if(splashScreen && !splashScreen.classList.contains('hidden')) renderSplash();
+    if(modalBg && !modalBg.classList.contains('hidden') && document.getElementById('cardsList')) showItemCards();
   });
 }
 
@@ -153,7 +155,17 @@ function preloadAllGameImages(){
   Object.values(MONSTER_TABLE).forEach(m=>{ if(m.img) preloadImg(`enemies/${m.img}`); });
   Object.values(BOSS_TABLE).forEach(b=>{ if(b.img) preloadImg(`bosses/${b.img}`); });
   Object.values(CLASSES).forEach(c=>{ if(c.img) preloadImg(`classes/${c.img}`); });
+  Object.values(ITEM_CARDS).forEach(c=>{ if(c.img) preloadImg(`cards/${c.img}`); });
   preloadImg(`items/${CHEST_IMG}`);
+}
+
+// Icona quadrata per una riga del pannello "Le tue Carte": usa il png se
+// disponibile (images/cards/...), altrimenti l'emoji, centrata nel riquadro.
+function cardIconMarkup(emoji, relPath){
+  if(relPath && imgStatus[relPath]){
+    return `<img src="${IMG_BASE}${relPath}" alt="">`;
+  }
+  return emoji;
 }
 
 // Level 1 è confermato dalla carta ufficiale: 2 Ragni, Salute 2, Gittata 3, Difesa 4, Attacco 4, Velocità 5.
@@ -215,9 +227,11 @@ const EXPANSIONS = {
 // quando viene giocata. La rimozione dalla mano (scarto) è gestita a parte in
 // discardCard(), tranne per Fiamma del Fato che richiede una selezione prima
 // di scartarsi davvero (vedi confirmFlameFate()).
+// "img" = nome file atteso in images/cards/ (usato al posto dell'emoji
+// quando il file è disponibile — vedi sezione IMMAGINI più sotto).
 const ITEM_CARDS = {
   wyrm_speed: {
-    name: "Estratto di Wyrm Spinato", icon: "🐉", expansion:'item_cards',
+    name: "Estratto di Wyrm Spinato", icon: "🐉", img:"card_wyrm-speed.png", expansion:'item_cards',
     desc: "Aggiungi +4 al tuo movimento.",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -227,7 +241,7 @@ const ITEM_CARDS = {
     }
   },
   halve_damage: {
-    name: "Dimezza i Danni Subiti", icon: "🩹", expansion:'item_cards',
+    name: "Dimezza i Danni Subiti", icon: "🩹", img:"card_halve-damage.png", expansion:'item_cards',
     desc: "Attivala prima di finire il turno: tutto il danno che subirai dai mostri questo turno viene dimezzato (arrotondato per eccesso).",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -237,7 +251,7 @@ const ITEM_CARDS = {
     }
   },
   flame_of_fate: {
-    name: "Fiamma del Fato", icon: "🔥", expansion:'item_cards',
+    name: "Fiamma del Fato", icon: "🔥", img:"card_flame-of-fate.png", expansion:'item_cards',
     desc: "Rilancia uno o più dadi Energia non ancora assegnati e tieni il nuovo risultato.",
     usable: ()=> state.phase==='assign' && !state.animating && state.dice.some(d=>!d.target),
     use(){
@@ -248,7 +262,7 @@ const ITEM_CARDS = {
     }
   },
   rope_pick: {
-    name: "Corda e Piccozza", icon: "⛏️", expansion:'item_cards',
+    name: "Corda e Piccozza", icon: "⛏️", img:"card_rope-pick.png", expansion:'item_cards',
     desc: "Durante i tuoi attacchi standard di questo turno: +2 Attacco e +2 Gittata.",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -258,7 +272,7 @@ const ITEM_CARDS = {
     }
   },
   gorgon_head: {
-    name: "Testa della Gorgona", icon: "🐍", expansion:'item_cards',
+    name: "Testa della Gorgona", icon: "🐍", img:"card_gorgon-head.png", expansion:'item_cards',
     desc: "Per questo turno, tutti i mostri hanno Velocità 0 (restano fermi, ma attaccano normalmente se già in Gittata).",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -268,7 +282,7 @@ const ITEM_CARDS = {
     }
   },
   hourglass: {
-    name: "Clessidra", icon: "⏳", expansion:'item_cards',
+    name: "Clessidra", icon: "⏳", img:"card_hourglass.png", expansion:'item_cards',
     desc: "Salta completamente la Fase Mostri: tocca subito di nuovo a te con una nuova Fase Energia.",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -278,7 +292,7 @@ const ITEM_CARDS = {
     }
   },
   black_powder: {
-    name: "Polvere Nera", icon: "💥", expansion:'item_cards',
+    name: "Polvere Nera", icon: "💥", img:"card_black-powder.png", expansion:'item_cards',
     desc: "Il prossimo danno che infliggi con un attacco standard (non con abilità speciali) colpisce anche tutti gli altri mostri, anche se fuori Gittata o Linea di Vista.",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
@@ -288,7 +302,7 @@ const ITEM_CARDS = {
     }
   },
   dragon_eye: {
-    name: "Occhio di Drago", icon: "👁️", expansion:'item_cards',
+    name: "Occhio di Drago", icon: "👁️", img:"card_dragon-eye.png", expansion:'item_cards',
     desc: "Nel prossimo lancio, uno dei tre dadi Energia sarà un d12 invece di un d6.",
     usable: ()=> state.phase==='roll' && !state.animating,
     use(){
@@ -1305,10 +1319,16 @@ function showItemCards(){
   state.itemCards.forEach(id=>{
     const c = ITEM_CARDS[id];
     const usable = c.usable();
+    const relPath = c.img ? `cards/${c.img}` : null;
     const b=document.createElement('button');
-    b.className='btn secondary'+(!usable?' disabled':'');
-    b.style.textAlign='left';
-    b.innerHTML = `<div style="font-family:'Cinzel',serif;">${c.icon} ${c.name}</div><div style="font-family:'IM Fell English',serif; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${c.desc}</div>`;
+    b.className='cardpanel-row';
+    b.disabled = !usable;
+    b.innerHTML = `
+      <div class="cardpanel-icon">${cardIconMarkup(c.icon, relPath)}</div>
+      <div class="cardpanel-body">
+        <div class="cardpanel-title">${c.name}</div>
+        <div class="cardpanel-desc">${c.desc}</div>
+      </div>`;
     if(usable) b.onclick = ()=>{ bg.classList.add('hidden'); c.use(); };
     list.appendChild(b);
   });

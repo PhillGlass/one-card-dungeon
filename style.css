@@ -63,18 +63,18 @@
   .die.used{ opacity:.25; pointer-events:none; }
   .die.selected{ outline:3px solid var(--ember); transform:translateY(-3px); }
   .assign-targets{ display:flex; justify-content:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
-  .assign-btn{ font-family:'Cinzel',serif; font-size:.6rem; letter-spacing:.04em; padding:6px 8px; border-radius:7px; text-transform:uppercase;
+  .assign-btn{ font-family:'Cinzel',serif; font-size:.6rem; letter-spacing:.04em; padding:6px 8px; border-radius:7px;
     background:var(--stone-2); border:1px solid var(--gold); color:var(--gold-bright); cursor:pointer; }
   .assign-btn:disabled{ opacity:.3; }
 
-  .btn{ font-family:'Cinzel',serif; letter-spacing:.05em; text-transform:uppercase; font-size:.74rem; padding:10px 12px; border-radius:9px;
+  .btn{ font-family:'Cinzel',serif; letter-spacing:.05em; font-size:.74rem; padding:10px 12px; border-radius:9px;
     border:1px solid var(--gold); background:linear-gradient(180deg,var(--ember),#8f3f24); color:#fff3e2;
-    box-shadow:0 3px 0 #5b2313, 0 4px 10px rgba(0,0,0,.4); cursor:pointer; width:100%; }
-  .btn:active{ transform:translateY(2px); box-shadow:0 1px 0 #5b2313; }
-  .btn:disabled{ opacity:.35; box-shadow:none; }
+    cursor:pointer; width:100%; }
+  .btn:active{ transform:translateY(2px); }
+  .btn:disabled{ opacity:.35; }
   .btn.secondary{ background:linear-gradient(180deg,#3a4a34,#293522); border-color:var(--moss); }
   .btn.gold{ background:linear-gradient(180deg,var(--gold),#8f6d24); color:#221a12; border-color:#fff3d0;}
-  .btn.gold.picked{ outline:3px solid var(--green-bright); box-shadow:0 0 10px var(--green-bright); }
+  .btn.gold.picked{ outline:3px solid var(--green-bright); }
   .btn.small{ font-size:.68rem; padding:8px 10px; margin-top:6px; }
 
   .mapwrap{ margin:10px 0; position:relative; }
@@ -175,9 +175,23 @@
   .choice-row{ display:flex; gap:8px; margin:12px 0; }
   .choice-row .btn{ font-size:.68rem; }
   .skill-choice{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
-  .skill-choice button, .heal-btn{ font-family:'Cinzel',serif; font-size:.72rem; text-transform:uppercase; padding:10px 4px; border-radius:8px; border:1px solid var(--gold); background:var(--stone-2); color:var(--parchment); width:100%; cursor:pointer; }
+  .skill-choice button, .heal-btn{ font-family:'Cinzel',serif; font-size:.72rem; padding:10px 4px; border-radius:8px; border:1px solid var(--gold); background:var(--stone-2); color:var(--parchment); width:100%; cursor:pointer; }
   .skill-choice button.picked, .heal-btn.picked{ background:var(--gold); color:#221a12; }
   .hidden{ display:none !important; }
+
+  /* Pannello "Le tue Carte" — ricalca cardsList.svg: riquadro con bordo/gradiente
+     verde, icona quadrata a sinistra (52px, emoji o png card_<nome>.png se
+     disponibile — vedi tokenMarkup in app.js), titolo + descrizione a destra. */
+  .cardpanel-row{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    margin:0; padding:8px; border:1px solid #5a7350; border-radius:9px; cursor:pointer;
+    background:linear-gradient(180deg,#3a4a34,#293522); color:#fff3e2; font:inherit; }
+  .cardpanel-row:disabled{ opacity:.45; cursor:default; }
+  .cardpanel-icon{ width:52px; height:52px; min-width:52px; border-radius:6px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.18); font-size:1.7rem; }
+  .cardpanel-icon img{ width:100%; height:100%; object-fit:cover; }
+  .cardpanel-body{ min-width:0; }
+  .cardpanel-title{ font-family:'Cinzel',serif; font-weight:500; font-size:.72rem; letter-spacing:.08em; color:#fff3e2; }
+  .cardpanel-desc{ font-family:'IM Fell English', Georgia, serif; font-size:.72rem; opacity:.8; color:#fff3e2; margin-top:4px; line-height:1.35; }
 
   header{ position:relative; }
   .home-btn{ position:absolute; left:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
@@ -228,7 +242,7 @@
 .assign-btn.disabled{ opacity:.3; pointer-events:none; }
 
 /* Selezione espansione in home (stesso trattamento del "picked" per le classi) */
-.btn.secondary.picked{ outline:3px solid var(--gold-bright); box-shadow:0 0 10px var(--gold-bright); }
+.btn.secondary.picked{ outline:3px solid var(--gold-bright); }
 
 /* Boss: bagliore dorato rimosso su richiesta — resta solo l'emoji "boss-token"
    con il drop-shadow standard; il token-img del boss usa lo stesso filtro
