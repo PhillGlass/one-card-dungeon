@@ -110,6 +110,9 @@ const MAX_LEVEL = 12;
    lo riconosca in automatico al prossimo caricamento/refresh.
    ============================================================ */
 const IMG_BASE = 'images/';
+// Nome file atteso in images/items/ per la Cassa del Tesoro (espansione
+// "M'Guf-yn Returns"). Stesso meccanismo di fallback delle altre immagini.
+const CHEST_IMG = 'chest.png';
 const imgStatus = {};      // "cartella/file.png" -> true (disponibile) | false (assente)
 let imgRerenderQueued = false;
 
@@ -150,6 +153,7 @@ function preloadAllGameImages(){
   Object.values(MONSTER_TABLE).forEach(m=>{ if(m.img) preloadImg(`enemies/${m.img}`); });
   Object.values(BOSS_TABLE).forEach(b=>{ if(b.img) preloadImg(`bosses/${b.img}`); });
   Object.values(CLASSES).forEach(c=>{ if(c.img) preloadImg(`classes/${c.img}`); });
+  preloadImg(`items/${CHEST_IMG}`);
 }
 
 // Level 1 è confermato dalla carta ufficiale: 2 Ragni, Salute 2, Gittata 3, Difesa 4, Attacco 4, Velocità 5.
@@ -507,7 +511,7 @@ function spawnNormalLevel(lvl){
   // quando non viene aperta conta come una casella Muro a tutti gli effetti.
   if(state.expansions.includes('mguf_yn_returns')){
     const roll = 1+Math.floor(Math.random()*6);
-    state.chest = { x: state.exitStair.x, y: state.exitStair.y, roll, opened:false };
+    state.chest = { x: state.exitStair.x, y: state.exitStair.y, roll, opened:false, img:`items/${CHEST_IMG}` };
   }
 }
 
@@ -1637,11 +1641,7 @@ function renderGrid(){
         cell.innerHTML = `${tokenMarkup(monster.icon, monster.img, monster.isBoss?'boss-token':'')}<span class="hp-badge">${monster.hp}</span>`;
       } else if(isChestCell){
         cell.classList.add('chest');
-        cell.innerHTML = `<span class="token">🎁</span><span class="chest-badge">${state.chest.roll}</span>`;
-      } else if(isEntry){
-        cell.innerHTML = `<span class="token" style="opacity:.5">🔼</span>`;
-      } else if(isExit){
-        cell.innerHTML = `<span class="token" style="opacity:.5">🔽</span>`;
+        cell.innerHTML = `${tokenMarkup('🎁', state.chest.img, 'chest-token')}<span class="chest-badge">${state.chest.roll}</span>`;
       }
       cell.onclick=()=>handleCellClick(x,y);
       grid.appendChild(cell);

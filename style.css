@@ -102,7 +102,7 @@
      e lo z-index per riga assegnato in JS (renderGrid) per la profondità. */
   .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:visible; }
   .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; }
-  .cell.stair{ background:#26332a; }
+  .cell.stair{ background:#221a15; }
   .cell.reachable{ background:#2c3826; box-shadow:inset 0 0 0 2px var(--moss); }
   .cell.attackable{ background:#3a2422; box-shadow:inset 0 0 0 2px var(--blood-bright); }
   .cell.selected-monster{ box-shadow:inset 0 0 0 2px var(--gold-bright); }
@@ -230,12 +230,10 @@
 /* Selezione espansione in home (stesso trattamento del "picked" per le classi) */
 .btn.secondary.picked{ outline:3px solid var(--gold-bright); box-shadow:0 0 10px var(--gold-bright); }
 
-/* Boss: leggero bagliore dorato sul token, per distinguerlo a colpo d'occhio.
-   La versione ".cell .token-img.boss-token" (più specifica di ".cell
-   .token-img") serve a non perdere il bagliore quando il boss usa un'
-   immagine PNG invece dell'emoji. */
-.boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
-.cell .token-img.boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px var(--gold-bright)); }
+/* Boss: bagliore dorato rimosso su richiesta — resta solo l'emoji "boss-token"
+   con il drop-shadow standard; il token-img del boss usa lo stesso filtro
+   di base di ".cell .token-img" (nessuna regola dedicata necessaria). */
+.boss-token{ filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
 
 /* Cassa del Tesoro: nessun bordo fisso — proprio come i mostri (bordo rosso
    solo se attaccabili), qui il bordo compare SOLO quando è davvero in
