@@ -271,6 +271,12 @@
 .stat.cards-stat{ background:linear-gradient(180deg,#1e3a1c,#16290f); border-color:var(--moss); cursor:pointer; }
 .stat.cards-stat .lbl{ color:var(--green-bright); }
 .stat.cards-stat .val{ color:var(--green-bright); }
+/* Nessuna carta usabile nella fase corrente: colorazione spenta, ma resta
+   cliccabile (cursor:pointer) — la modal delle carte deve restare sempre
+   raggiungibile anche quando tutte le carte in mano sono disabilitate. */
+.stat.cards-stat.cards-stat-dim{ background:#16290f; border-color:var(--moss); }
+.stat.cards-stat.cards-stat-dim .lbl{ color:var(--moss); }
+.stat.cards-stat.cards-stat-dim .val{ color:var(--moss); }
 
 /* Dado d12 (Occhio di Drago): stessa forma dei dadi normali, tinta violacea
    per segnalare che non è un comune d6. */

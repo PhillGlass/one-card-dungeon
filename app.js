@@ -1462,7 +1462,8 @@ function renderStats(){
   row.classList.toggle('has-cards', showCards);
   if(showCards){
     const cardsBox = document.createElement('div');
-    cardsBox.className = 'stat cards-stat';
+    const anyUsable = state.itemCards.some(id => ITEM_CARDS[id].usable());
+    cardsBox.className = 'stat cards-stat' + (anyUsable ? '' : ' cards-stat-dim');
     cardsBox.innerHTML = `<div class="lbl">Carte</div><div class="val">${state.itemCards.length}</div>`;
     cardsBox.onclick = showItemCards;
     row.appendChild(cardsBox);
