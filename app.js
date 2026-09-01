@@ -293,7 +293,7 @@ const ITEM_CARDS = {
   },
   black_powder: {
     name: "Polvere Nera", icon: "💥", img:"card_black-powder.png", expansion:'item_cards',
-    desc: "Il prossimo danno che infliggi con un attacco standard (non con abilità speciali) colpisce anche tutti gli altri mostri, anche se fuori Gittata o Linea di Vista.",
+    desc: "Il prossimo danno che infliggi con un attacco standard colpisce anche tutti gli altri mostri, anche se fuori Gittata o Linea di Vista.",
     usable: ()=> state.phase==='act' && !state.animating,
     use(){
       state.blackPowderArmed = true;
