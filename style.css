@@ -101,7 +101,7 @@
      l'alto quando la scacchiera si comprime in altezza — vedi .token-img
      e lo z-index per riga assegnato in JS (renderGrid) per la profondità. */
   .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:visible; }
-  .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; }
+  .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; box-shadow:6px 6px 10px 6px rgba(0,0,0,.5); z-index:6; }
   .cell.stair{ background:#221a15; }
   .cell.reachable{ background:#2c3826; box-shadow:inset 0 0 0 2px var(--moss); }
   .cell.attackable{ background:#3a2422; box-shadow:inset 0 0 0 2px var(--blood-bright); }

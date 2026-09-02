@@ -1627,14 +1627,17 @@ function renderGrid(){
     for(let x=0;x<GRID;x++){
       const cell=document.createElement('div');
       cell.className='cell';
+      const k=key(x,y);
+      const isWall = rawWallSet.has(k);
       // Le immagini PNG (a differenza delle emoji) sono ancorate al bordo
       // inferiore della cella e possono "sbordare" verso l'alto quando la
       // griglia si comprime in altezza. Perché la profondità risulti
       // corretta, le righe più in basso devono stare visivamente sopra
       // quelle più in alto (in primo piano rispetto a quelle dietro).
-      cell.style.zIndex = y+1;
-      const k=key(x,y);
-      const isWall = rawWallSet.has(k);
+      // I Muri fanno eccezione: stanno sempre in primo piano (z-index 6,
+      // impostato qui perché lo z-index inline avrebbe altrimenti la
+      // precedenza sulla regola CSS ".cell.wall").
+      cell.style.zIndex = isWall ? 6 : y+1;
       const isChestCell = state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y;
       const isEntry = x===state.entryStair.x && y===state.entryStair.y;
       const isExit = x===state.exitStair.x && y===state.exitStair.y;
