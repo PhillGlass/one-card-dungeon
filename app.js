@@ -109,10 +109,35 @@ const MAX_LEVEL = 12;
    il png con il nome giusto nella cartella giusta perché il gioco
    lo riconosca in automatico al prossimo caricamento/refresh.
    ============================================================ */
+// "img" = nome file atteso in images/items/ per la Cassa del Tesoro.
 const IMG_BASE = 'images/';
-// Nome file atteso in images/items/ per la Cassa del Tesoro (espansione
-// "M'Guf-yn Returns"). Stesso meccanismo di fallback delle altre immagini.
 const CHEST_IMG = 'chest.png';
+
+// Set di piastrelle (images/tiles/<set>/<set>-cell_NN.png, NN da 01 a 25,
+// ordine da in alto a sinistra verso destra, poi giù di riga). Ogni livello
+// usa il set che corrisponde al mostro/boss tematico di quel livello — lo
+// stesso ciclo già usato da MONSTER_TABLE/BOSS_TABLE (Ragno→den,
+// Scheletro→dungeon, Orco→cave, Demone→abysmal), quindi il set resta
+// coerente anche quando compare il boss dello stesso livello.
+const TILE_SETS_BY_LEVEL_CYCLE = ['den','dungeon','cave','abysmal'];
+function tileBiomeForLevel(lvl){
+  return TILE_SETS_BY_LEVEL_CYCLE[(lvl-1)%4];
+}
+function tileCellPath(biome, x, y){
+  const idx = String(y*GRID + x + 1).padStart(2,'0');
+  return `tiles/${biome}/${biome}-cell_${idx}.png`;
+}
+// true se ALMENO una piastrella del set risulta caricata: usato per capire
+// se il set di immagini "esiste" davvero (altrimenti i Muri, che con il
+// nuovo fill/stroke piatto si distinguerebbero poco dalle celle normali
+// prive di piastrella, tornano al vecchio effetto a righe per restare
+// nettamente distinguibili — vedi ".wall-fallback" in renderGrid/style.css).
+function biomeHasTiles(biome){
+  for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
+    if(imgStatus[tileCellPath(biome,x,y)]) return true;
+  }
+  return false;
+}
 const imgStatus = {};      // "cartella/file.png" -> true (disponibile) | false (assente)
 let imgRerenderQueued = false;
 
@@ -157,6 +182,9 @@ function preloadAllGameImages(){
   Object.values(CLASSES).forEach(c=>{ if(c.img) preloadImg(`classes/${c.img}`); });
   Object.values(ITEM_CARDS).forEach(c=>{ if(c.img) preloadImg(`cards/${c.img}`); });
   preloadImg(`items/${CHEST_IMG}`);
+  TILE_SETS_BY_LEVEL_CYCLE.forEach(biome=>{
+    for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++) preloadImg(tileCellPath(biome,x,y));
+  });
 }
 
 // Icona quadrata per una riga del pannello "Le tue Carte": usa il png se
@@ -1629,6 +1657,7 @@ function renderGrid(){
       cell.className='cell';
       const k=key(x,y);
       const isWall = rawWallSet.has(k);
+      const biome = tileBiomeForLevel(state.level);
       // Le immagini PNG (a differenza delle emoji) sono ancorate al bordo
       // inferiore della cella e possono "sbordare" verso l'alto quando la
       // griglia si comprime in altezza. Perché la profondità risulti
@@ -1638,6 +1667,23 @@ function renderGrid(){
       // impostato qui perché lo z-index inline avrebbe altrimenti la
       // precedenza sulla regola CSS ".cell.wall").
       cell.style.zIndex = isWall ? 6 : y+1;
+      if(isWall){
+        // Fill/stroke piatti solo se il set di piastrelle del livello è
+        // effettivamente disponibile; altrimenti resta il vecchio effetto a
+        // righe, così i Muri restano ben distinguibili anche senza immagini.
+        if(!biomeHasTiles(biome)) cell.classList.add('wall-fallback');
+      } else {
+        // Piastrella di sfondo del pavimento (una per cella, dal set del
+        // livello corrente): copre/centra la cella, tagliata sopra e sotto
+        // se la cella si comprime in altezza. Se il file non è ancora
+        // disponibile resta lo sfondo attuale (nessun cambiamento visivo).
+        const tilePath = tileCellPath(biome, x, y);
+        if(imgStatus[tilePath]){
+          cell.style.backgroundImage = `url(${IMG_BASE}${tilePath})`;
+          cell.style.backgroundSize = 'cover';
+          cell.style.backgroundPosition = 'center';
+        }
+      }
       const isChestCell = state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y;
       const isEntry = x===state.entryStair.x && y===state.entryStair.y;
       const isExit = x===state.exitStair.x && y===state.exitStair.y;

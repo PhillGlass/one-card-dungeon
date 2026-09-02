@@ -101,10 +101,27 @@
      l'alto quando la scacchiera si comprime in altezza — vedi .token-img
      e lo z-index per riga assegnato in JS (renderGrid) per la profondità. */
   .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:visible; }
-  .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; box-shadow:6px 6px 10px 6px rgba(0,0,0,.5); z-index:6; }
+  /* Muro: fill/stroke pieni fissi, niente più effetto a righe — attivo solo
+     quando il set di piastrelle del livello è disponibile (vedi
+     biomeHasTiles in app.js). Se il set non è caricato, ".wall-fallback"
+     (più specifica, quindi vince) ripristina il vecchio effetto a righe:
+     altrimenti il muro si distinguerebbe troppo poco dalle celle senza
+     piastrella (stesso sfondo scuro, nessuna texture). */
+  .cell.wall{ background:#0B0B09; border-color:#2C2B29; box-shadow:6px 6px 10px 6px rgba(0,0,0,.5); z-index:6; }
+  .cell.wall.wall-fallback{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; }
   .cell.stair{ background:#221a15; }
+  /* Evidenziazioni (movimento/attacco) e bagliore del baule: quando la
+     cella ha una piastrella di sfondo (immagine), il colore pieno di sotto
+     resterebbe nascosto — quindi il "colpo di colore" vero e proprio è dato
+     da un layer ::before semi-trasparente sopra la piastrella. Il colore
+     di background della cella resta anche invariato per compatibilità:
+     se non c'è alcuna immagine di sfondo, il ::before (stesso colore, solo
+     più trasparente) si somma al colore pieno sottostante risultando
+     visivamente identico a prima. */
   .cell.reachable{ background:#2c3826; box-shadow:inset 0 0 0 2px var(--moss); }
   .cell.attackable{ background:#3a2422; box-shadow:inset 0 0 0 2px var(--blood-bright); }
+  .cell.reachable::before{ content:''; position:absolute; inset:0; border-radius:inherit; background:#2c3826; opacity:.6; pointer-events:none; }
+  .cell.attackable::before{ content:''; position:absolute; inset:0; border-radius:inherit; background:#3a2422; opacity:.6; pointer-events:none; }
   .cell.selected-monster{ box-shadow:inset 0 0 0 2px var(--gold-bright); }
   .cell .token{ font-size:1.35rem; filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
   /* Immagine PNG al posto dell'emoji: larga quanto la cella, altezza
@@ -256,6 +273,11 @@
    ancora attaccabile, il bordo resta oro come promemoria della selezione. */
 .cell.chest{ background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); }
 .cell.chest.attackable{ box-shadow:inset 0 0 0 2px var(--green-bright); background:#243a22; }
+/* Stesso principio delle evidenziazioni sopra: veil semi-trasparente in più,
+   così il bagliore resta visibile anche quando la cella ha una piastrella
+   di sfondo (che altrimenti coprirebbe il colore pieno sottostante). */
+.cell.chest::before{ content:''; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(circle at 50% 40%, #4a3a12, #2b2113); opacity:.6; pointer-events:none; }
+.cell.chest.attackable::before{ background:#243a22; }
 /* Selezionata: l'oro prevale sul verde (stessa priorità dei mostri, dove il
    bordo oro della selezione vince su quello rosso di "attaccabile"). */
 .cell.chest.selected-monster{ box-shadow:inset 0 0 0 2px var(--gold-bright); }
