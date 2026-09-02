@@ -101,14 +101,14 @@
      l'alto quando la scacchiera si comprime in altezza — vedi .token-img
      e lo z-index per riga assegnato in JS (renderGrid) per la profondità. */
   .cell{ background:#221a15; border-radius:5px; display:flex; align-items:center; justify-content:center; position:relative; font-size:1.3rem; border:1px solid #362b23; overflow:visible; }
-  /* Muro: fill/stroke pieni fissi, niente più effetto a righe — attivo solo
-     quando il set di piastrelle del livello è disponibile (vedi
-     biomeHasTiles in app.js). Se il set non è caricato, ".wall-fallback"
-     (più specifica, quindi vince) ripristina il vecchio effetto a righe:
-     altrimenti il muro si distinguerebbe troppo poco dalle celle senza
-     piastrella (stesso sfondo scuro, nessuna texture). */
-  .cell.wall{ background:#0B0B09; border-color:#2C2B29; box-shadow:6px 6px 10px 6px rgba(0,0,0,.5); z-index:6; }
-  .cell.wall.wall-fallback{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; }
+  /* Cella con piastrella di sfondo caricata (vedi renderGrid in app.js):
+     niente più bordo, per un effetto pavimento continuo. I Muri fanno
+     eccezione e mantengono sempre il proprio bordo (vedi sotto). */
+  .cell.has-tile{ border-color:transparent; }
+  /* Muro: colore ed effetto a righe come da progetto originale, con in più
+     l'ombra portata. Il bordo dei Muri resta sempre visibile, anche sulle
+     celle con piastrella. */
+  .cell.wall{ background:repeating-linear-gradient(135deg,#3a2f27,#3a2f27 4px,#2b221b 4px,#2b221b 8px); border-color:#5c4a37; box-shadow:6px 6px 10px 6px rgba(0,0,0,.5); z-index:6; }
   .cell.stair{ background:#221a15; }
   /* Evidenziazioni (movimento/attacco) e bagliore del baule: quando la
      cella ha una piastrella di sfondo (immagine), il colore pieno di sotto

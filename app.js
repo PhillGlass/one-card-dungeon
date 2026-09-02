@@ -127,17 +127,6 @@ function tileCellPath(biome, x, y){
   const idx = String(y*GRID + x + 1).padStart(2,'0');
   return `tiles/${biome}/${biome}-cell_${idx}.png`;
 }
-// true se ALMENO una piastrella del set risulta caricata: usato per capire
-// se il set di immagini "esiste" davvero (altrimenti i Muri, che con il
-// nuovo fill/stroke piatto si distinguerebbero poco dalle celle normali
-// prive di piastrella, tornano al vecchio effetto a righe per restare
-// nettamente distinguibili — vedi ".wall-fallback" in renderGrid/style.css).
-function biomeHasTiles(biome){
-  for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
-    if(imgStatus[tileCellPath(biome,x,y)]) return true;
-  }
-  return false;
-}
 const imgStatus = {};      // "cartella/file.png" -> true (disponibile) | false (assente)
 let imgRerenderQueued = false;
 
@@ -1667,21 +1656,20 @@ function renderGrid(){
       // impostato qui perché lo z-index inline avrebbe altrimenti la
       // precedenza sulla regola CSS ".cell.wall").
       cell.style.zIndex = isWall ? 6 : y+1;
-      if(isWall){
-        // Fill/stroke piatti solo se il set di piastrelle del livello è
-        // effettivamente disponibile; altrimenti resta il vecchio effetto a
-        // righe, così i Muri restano ben distinguibili anche senza immagini.
-        if(!biomeHasTiles(biome)) cell.classList.add('wall-fallback');
-      } else {
+      if(!isWall){
         // Piastrella di sfondo del pavimento (una per cella, dal set del
         // livello corrente): copre/centra la cella, tagliata sopra e sotto
         // se la cella si comprime in altezza. Se il file non è ancora
         // disponibile resta lo sfondo attuale (nessun cambiamento visivo).
+        // Quando la piastrella c'è, il bordo della cella viene tolto
+        // ("has-tile" in CSS): resta invece sui Muri.
+        const biome = tileBiomeForLevel(state.level);
         const tilePath = tileCellPath(biome, x, y);
         if(imgStatus[tilePath]){
           cell.style.backgroundImage = `url(${IMG_BASE}${tilePath})`;
           cell.style.backgroundSize = 'cover';
           cell.style.backgroundPosition = 'center';
+          cell.classList.add('has-tile');
         }
       }
       const isChestCell = state.chest && !state.chest.opened && state.chest.x===x && state.chest.y===y;
