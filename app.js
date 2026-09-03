@@ -1309,10 +1309,15 @@ function showClassSelect(){
   `;
   const list = m.querySelector('#classList');
   visibleClasses.forEach(([id,c])=>{
+    const relPath = c.img ? `classes/${c.img}` : null;
     const b=document.createElement('button');
-    b.className='btn secondary';
-    b.style.textAlign='left';
-    b.innerHTML = `<div style="font-family:'Cinzel',serif;">${c.icon} ${c.name}</div><div style="font-family:'IM Fell English',serif; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${c.desc}</div>`;
+    b.className='cardpanel-row';
+    b.innerHTML = `
+      <div class="cardpanel-icon">${cardIconMarkup(c.icon, relPath)}</div>
+      <div class="cardpanel-body">
+        <div class="cardpanel-title">${c.name}</div>
+        <div class="cardpanel-desc">${c.desc}</div>
+      </div>`;
     b.onclick = ()=>{ bg.classList.add('hidden'); startRun(id); showGame(); };
     list.appendChild(b);
   });
