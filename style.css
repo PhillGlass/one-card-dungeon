@@ -9,6 +9,9 @@
        quadrate; sotto, la griglia non si comprime oltre (si preferisce far
        sbordare il resto piuttosto che rendere le celle illeggibili). */
     --grid-min-h: 196px;
+    /* Stessa logica per il ritratto dell'eroe nella Home: sotto questa
+       soglia smette di comprimersi (vedi SCHERMATA HOME piu' sotto). */
+    --hero-min-h: 44px;
     /* Padding verticale del <body> (deve restare allineato alla regola sotto):
        serve per calcolare l'altezza utile della schermata di gioco. */
     --vpad: calc(max(10px, env(safe-area-inset-top)) + max(16px, env(safe-area-inset-bottom)));
@@ -219,13 +222,39 @@
   .splash-icon-top{ text-align:center; font-size:2rem; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
   .splash-title{ font-family:'Cinzel Decorative',serif; text-align:center; font-size:1.9rem; line-height:1.2; color:var(--gold-bright); letter-spacing:.04em; text-shadow:0 3px 0 #000; margin:4px 0 0; }
   #splashScreen .sub{ padding-top:4px; }
-  .splash-hero-icon{ text-align:center; font-size:2.4rem; margin-top:10px; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
+  /* Ritratto (o emoji) dell'eroe: e' l'unico blocco che puo' comprimersi in
+     altezza quando lo spazio scarseggia (stesso principio della scacchiera
+     in partita, vedi SCHERMATA HOME piu' sotto) — sotto --hero-min-h smette
+     di ridursi ulteriormente. */
+  .splash-hero-icon{ display:flex; align-items:center; justify-content:center; margin-top:10px; font-size:2.4rem; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); overflow:hidden; }
   /* Ritratto PNG della classe (se disponibile) al posto dell'emoji: altezza
-     fissa, proporzioni mantenute, stesso drop-shadow dell'emoji che sostituisce. */
-  .splash-hero-icon .token-img{ height:84px; width:auto; display:inline-block; vertical-align:middle; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
+     piena del contenitore (che si comprime), proporzioni mantenute, stesso
+     drop-shadow dell'emoji che sostituisce. */
+  .splash-hero-icon .token-img{ height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
   .record-line{ text-align:center; font-family:'Cinzel',serif; font-size:.78rem; letter-spacing:.03em; color:var(--gold-bright); padding:2px 0; }
-  #splashScreen{ display:flex; flex-direction:column; min-height:calc(100vh - 42px); }
-  .splash-bottom{ margin-top:auto; display:flex; flex-direction:column; align-items:stretch; }
+  /* ============================================================
+     SCHERMATA HOME — ADATTAMENTO IN ALTEZZA
+     ------------------------------------------------------------
+     Stessa logica della schermata di gioco: colonna flex alta al massimo
+     quanto la viewport. Titolo+header e il blocco bottoni (centro e fondo)
+     mantengono la loro altezza naturale; l'unico elemento che cede quando
+     lo spazio scarseggia e' il ritratto dell'eroe, fino a --hero-min-h.
+     Se anche cosi' il contenuto non ci sta, la schermata scorre invece di
+     far sovrapporre gli elementi. */
+  #splashScreen{
+    display:flex; flex-direction:column;
+    max-height: calc(100vh - var(--vpad));
+    max-height: calc(100dvh - var(--vpad));
+    overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+  }
+  #splashScreen > *{ flex:0 0 auto; }
+  #splashScreen .splash-hero-icon{
+    flex:0 1 auto;
+    height:90px;
+    min-height:var(--hero-min-h);
+  }
+  .splash-bottom{ margin-top:auto; display:flex; flex-direction:column; align-items:stretch; flex-shrink:0; }
   .btn.ghost{ background:transparent; border:1px solid rgba(201,162,75,.35); color:var(--parchment-dim); box-shadow:none; }
   .btn.ghost:active{ transform:translateY(1px); }
   .splash-footer{ text-align:center; font-size:.6rem; color:var(--parchment-dim); margin-top:10px; opacity:.65; line-height:1.55; }
