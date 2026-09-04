@@ -1856,7 +1856,7 @@ function showExpansionSelect(){
       const b=document.createElement('button');
       b.className = 'btn secondary' + (isActive?' picked':'');
       b.style.textAlign='left';
-      b.innerHTML = `<div style="font-family:'Cinzel',serif;">${e.icon} ${e.name} ${isActive?'✔':''}</div><div style="font-family:'IM Fell English',serif; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${e.desc}</div>`;
+      b.innerHTML = `<div style="font-family:'Cinzel',serif;">${e.icon} ${e.name} ${isActive?'✔':''}</div><div style="font-family:'EB Garamond',serif; font-variant-numeric:lining-nums; font-size:.72rem; text-transform:none; letter-spacing:normal; opacity:.85; margin-top:2px;">${e.desc}</div>`;
       b.onclick = ()=>{ setExpansionActive(id, !isActive); render2(); };
       list.appendChild(b);
     });

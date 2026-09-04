@@ -26,7 +26,12 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--ink);}
   body{
-    font-family:'IM Fell English', Georgia, serif; color:var(--parchment);
+    /* EB Garamond al posto di IM Fell English: stessa atmosfera "libro
+       antico", ma con le cifre "lining" (font-feature-settings sotto)
+       forzate anziché "old style" — altrimenti i numeri (danni, statistiche)
+       avrebbero altezze diverse tra loro e sarebbero poco leggibili. */
+    font-family:'EB Garamond', Georgia, serif; font-feature-settings:"lnum" 1, "pnum" 1; font-variant-numeric:lining-nums;
+    color:var(--parchment);
     min-height:100vh; display:flex; justify-content:center;
     padding: max(10px, env(safe-area-inset-top)) 10px max(16px, env(safe-area-inset-bottom));
     background: radial-gradient(ellipse at 50% 0%, #2a221c 0%, var(--ink) 60%);
@@ -227,7 +232,7 @@
   .cardpanel-icon img{ width:100%; height:100%; object-fit:cover; }
   .cardpanel-body{ min-width:0; }
   .cardpanel-title{ font-family:'Cinzel',serif; font-weight:500; font-size:.72rem; letter-spacing:.08em; color:#fff3e2; }
-  .cardpanel-desc{ font-family:'IM Fell English', Georgia, serif; font-size:.72rem; opacity:.8; color:#fff3e2; margin-top:4px; line-height:1.35; }
+  .cardpanel-desc{ font-family:'EB Garamond', Georgia, serif; font-feature-settings:"lnum" 1, "pnum" 1; font-variant-numeric:lining-nums; font-size:.72rem; opacity:.8; color:#fff3e2; margin-top:4px; line-height:1.35; }
 
   header{ position:relative; }
   .home-btn{ position:absolute; left:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
@@ -286,7 +291,7 @@
 .auth-form{ display:flex; flex-direction:column; gap:10px; margin-top:20px; padding:12px; }
 .auth-form label{ font-family:'Cinzel',serif; font-size:.62rem; letter-spacing:.06em; color:var(--parchment-dim); text-transform:uppercase; }
 .auth-form input{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid #493c30; background:var(--stone-2);
-  color:var(--parchment); font-family:'IM Fell English', Georgia, serif; font-size:.95rem; }
+  color:var(--parchment); font-family:'EB Garamond', Georgia, serif; font-feature-settings:"lnum" 1, "pnum" 1; font-variant-numeric:lining-nums; font-size:.95rem; }
 .auth-form input:focus{ outline:none; border-color:var(--gold); }
 .auth-switch{ text-align:center; font-size:.75rem; color:var(--parchment-dim); margin-top:6px; }
 .auth-switch a{ color:var(--gold-bright); cursor:pointer; text-decoration:underline; }
