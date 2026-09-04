@@ -1304,8 +1304,10 @@ function showClassSelect(){
   const visibleClasses = Object.entries(CLASSES).filter(([id,c])=> !c.expansion || active[c.expansion]);
   m.innerHTML = `
     <button class="modal-close" id="classCloseBtn" aria-label="Chiudi">✕</button>
-    <h2>⚔ Scegli il tuo Eroe</h2>
-    <div id="classList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+    <div class="modal-scroll">
+      <h2>⚔ Scegli il tuo Eroe</h2>
+      <div id="classList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+    </div>
   `;
   const list = m.querySelector('#classList');
   visibleClasses.forEach(([id,c])=>{
@@ -1334,8 +1336,10 @@ function showItemCards(){
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   m.innerHTML = `
     <button class="modal-close" id="cardsCloseBtn" aria-label="Chiudi">✕</button>
-    <h2>🃏 Le tue Carte</h2>
-    <div id="cardsList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+    <div class="modal-scroll">
+      <h2>🃏 Le tue Carte</h2>
+      <div id="cardsList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+    </div>
   `;
   const list = m.querySelector('#cardsList');
   state.itemCards.forEach(id=>{
@@ -1369,16 +1373,18 @@ function showLevelUp(){
     range: '🎯 Gittata',
   };
   m.innerHTML = `
-    <h2>🏆 Livello Superato!</h2>
-    <p>Dopo ogni livello puoi <b>o</b> potenziare un'abilità <b>o</b> curarti completamente — non entrambi.</p>
-    <div class="skill-choice">
-      <button data-s="speed">${skillLabels.speed} (${state.skills.speed})</button>
-      <button data-s="atk">${skillLabels.atk} (${state.skills.atk})</button>
-      <button data-s="def">${skillLabels.def} (${state.skills.def})</button>
-      <button data-s="range">${skillLabels.range} (${state.skills.range})</button>
+    <div class="modal-scroll">
+      <h2>🏆 Livello Superato!</h2>
+      <p>Dopo ogni livello puoi <b>o</b> potenziare un'abilità <b>o</b> curarti completamente — non entrambi.</p>
+      <div class="skill-choice">
+        <button data-s="speed">${skillLabels.speed} (${state.skills.speed})</button>
+        <button data-s="atk">${skillLabels.atk} (${state.skills.atk})</button>
+        <button data-s="def">${skillLabels.def} (${state.skills.def})</button>
+        <button data-s="range">${skillLabels.range} (${state.skills.range})</button>
+      </div>
+      <button class="heal-btn" id="healBtn">${healLabel}</button>
+      <button class="btn" id="continueBtn" style="margin-top:8px;" disabled>Scendi al Livello ${state.level+1}</button>
     </div>
-    <button class="heal-btn" id="healBtn">${healLabel}</button>
-    <button class="btn" id="continueBtn" style="margin-top:8px;" disabled>Scendi al Livello ${state.level+1}</button>
   `;
   bg.classList.remove('hidden');
   const buttons=m.querySelectorAll('.skill-choice button');
@@ -1424,9 +1430,11 @@ function showGameOver(){
   finishRun();
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   const levelLabel = state.levelPhase==='boss' ? `${state.level} · Boss` : `${state.level}`;
-  m.innerHTML = `<h2 style="color:var(--blood-bright)">💀 Sei Caduto</h2>
+  m.innerHTML = `<div class="modal-scroll">
+    <h2 style="color:var(--blood-bright)">💀 Sei Caduto</h2>
     <p>Il tuo Avventuriero soccombe al Livello ${levelLabel}. Il dungeon reclama un'altra anima...</p>
-    <button class="btn gold" id="retryBtn">Torna al Menu</button>`;
+    <button class="btn gold" id="retryBtn">Torna al Menu</button>
+    </div>`;
   bg.classList.remove('hidden');
   m.querySelector('#retryBtn').onclick=()=>{ bg.classList.add('hidden'); showSplash(); };
 }
@@ -1435,11 +1443,13 @@ function showVictory(){
   finishRun();
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   const bossVictory = state.expansions.includes('mguf_yn_returns') && state.levelPhase==='boss';
-  m.innerHTML = `<h2 style="color:var(--gold-bright)">👑 Vittoria!</h2>
+  m.innerHTML = `<div class="modal-scroll">
+    <h2 style="color:var(--gold-bright)">👑 Vittoria!</h2>
     <p>${bossVictory
       ? `Hai sconfitto <b>M'Guf-yn</b> in persona e riconquistato lo <b>Scettro</b>. Il tuo villaggio è salvo!`
       : `Hai abbattuto tutti i mostri del Livello 12 e conquistato lo <b>Scettro di M'Guf-yn</b>. Il tuo villaggio è salvo!`}</p>
-    <button class="btn gold" id="againBtn">Torna al Menu</button>`;
+    <button class="btn gold" id="againBtn">Torna al Menu</button>
+    </div>`;
   bg.classList.remove('hidden');
   m.querySelector('#againBtn').onclick=()=>{ bg.classList.add('hidden'); showSplash(); };
 }
@@ -1834,9 +1844,11 @@ function showExpansionSelect(){
     const active = loadActiveExpansions();
     m.innerHTML = `
       <button class="modal-close" id="expCloseBtn" aria-label="Chiudi">✕</button>
-      <h2>👑 Espansioni</h2>
-      <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita" (sono combinabili tra loro). Puoi cambiarle in qualsiasi momento da qui.</p>
-      <div id="expList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+      <div class="modal-scroll">
+        <h2>👑 Espansioni</h2>
+        <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita" (sono combinabili tra loro). Puoi cambiarle in qualsiasi momento da qui.</p>
+        <div id="expList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+      </div>
     `;
     const list = m.querySelector('#expList');
     Object.entries(EXPANSIONS).forEach(([id,e])=>{
@@ -1866,8 +1878,68 @@ function showGame(){
   document.getElementById('gameScreen').classList.remove('hidden');
 }
 
+// Pagina "Istruzioni": puramente informativa, non tocca lo stato di gioco —
+// si può aprire sia dalla Home sia durante una partita. Il testo è diviso in
+// due sezioni (Gioco Base / Espansioni), scorrevoli dentro ".modal-scroll"
+// (la X di chiusura resta fissa in alto a destra anche scorrendo, vedi CSS).
+function showInstructions(){
+  const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
+  m.innerHTML = `
+    <button class="modal-close" id="instrCloseBtn" aria-label="Chiudi">✕</button>
+    <div class="modal-scroll" style="text-align:left;">
+      <h2 style="text-align:center;">📖 Come si Gioca</h2>
+
+      <h3>Gioco Base</h3>
+      <p>One Card Dungeon è un Dungeon Crawl con piazzamento dadi. Combatti attraverso 12 livelli sempre più impegnativi per raggiungere il premio finale: lo Scettro di M'Guf-yn.</p>
+
+      <p><b>Svolgimento.</b> Un livello si gioca ripetendo tre fasi in ordine, finché non uccidi tutti i mostri del livello o esaurisci la Salute:</p>
+
+      <p><b>1. Fase Energia.</b> Lancia i tre dadi Energia. Assegna un dado a ciascuna delle tue caratteristiche — Velocità, Attacco e Difesa — sommando il suo valore a quella caratteristica per il turno. Nessun dado viene assegnato alla Gittata: è sempre un valore fisso. I tuoi punti totali di Velocità, Attacco e Difesa saranno "spesi" nelle altre fasi.</p>
+
+      <p><b>2. Fase Azione.</b> Spendi i tuoi punti Velocità e Attacco totali per muoverti e attaccare i mostri, in qualsiasi ordine e più volte, finché hai punti da spendere.</p>
+      <p><b>Movimento.</b> Muoverti ortogonalmente costa 2 Punti Velocità, in diagonale 3. Non puoi muoverti sulla tessera di un Mostro o su un Muro.</p>
+      <p><b>Attacco.</b> Per attaccare un Mostro devi essere in Gittata e Linea di Vista dal bersaglio. Puoi allora spendere un numero di punti Attacco pari alla Difesa del Mostro per ridurne la Salute di 1. A 0 Salute il mostro muore e viene rimosso.</p>
+      <p><b>Gittata.</b> Si calcola come il Movimento: un mostro ortogonalmente adiacente è a Gittata 2, uno in diagonale a Gittata 3. Il tuo Avventuriero inizia con Gittata 2 (attacca solo ortogonalmente).</p>
+      <p><b>Linea di Vista.</b> Hai Linea di Vista se puoi tracciare una linea da un angolo qualsiasi della tua tessera a un angolo qualsiasi di quella del Mostro, senza attraversare un Muro o un altro Mostro.</p>
+
+      <p><b>3. Fase Mostri.</b> I mostri ancora vivi si muovono verso di te (possono attraversarsi a vicenda, ma non fermarsi sulla stessa tessera) e poi attaccano se sono in Gittata e Linea di Vista. I loro Attacchi si sommano; il danno che subisci è quell'Attacco totale diviso per la tua Difesa, arrotondato per difetto — <i>12 Attacco contro Difesa 7 infligge 1 Danno; 12 Attacco contro Difesa 4 infligge 3 Danni.</i> Se l'Attacco totale è inferiore alla tua Difesa, non subisci danno. A 0 Salute l'Avventuriero muore e la partita finisce. Se sopravvivi, ricomincia dalla Fase Energia.</p>
+
+      <p><b>Fine del livello.</b> Sconfitti tutti i Mostri, scegli <b>una sola</b> tra: aumentare di 1 un'Abilità (Velocità, Attacco, Difesa o Gittata) oppure curarti fino alla piena Salute (6).</p>
+
+      <p><b>Vittoria.</b> Sconfiggi tutti i mostri del 12° livello e trovi lo Scettro di M'Guf-yn.</p>
+
+      <p><b>Classi.</b> Puoi giocare in modalità Classica oppure impersonare Paladino, Barbaro, Ranger o Mago, ognuno con un'abilità unica:</p>
+      <p>⚔️ <b>Classico</b> — nessuna abilità speciale.</p>
+      <p>🛡️ <b>Paladino</b> — una volta per Livello, puoi mantenere il valore di un dado dal turno precedente invece di rilanciarlo.</p>
+      <p>🪓 <b>Barbaro</b> — una volta per turno, puoi rilanciare tutti i dadi quando hai 1 Salute.</p>
+      <p>🏹 <b>Ranger</b> — una volta per Livello, puoi assegnare un dado alla Gittata invece che alla Velocità.</p>
+      <p>🔮 <b>Mago</b> — una volta per Livello, puoi rilanciare tutti e tre i dadi.</p>
+
+      <h3>Espansioni</h3>
+
+      <p><b>👑 M'Guf-yn Returns.</b> Le regole di base restano invariate; si aggiungono nuove Classi, Casse del Tesoro e quattro Boss.</p>
+
+      <p><b>Cassa del Tesoro.</b> A inizio livello compare sul lato opposto all'ingresso. Il numero mostrato è la sua Difesa ed è anche il Bottino che darà una volta aperta. Si apre come un mostro (Gittata + Linea di Vista), spendendo Attacco pari al valore mostrato. Il Bottino ottenuto è un dado aggiuntivo: durante la Fase Energia, del livello corrente e/o del Boss corrispondente, puoi aggiungerlo — tutto insieme o in parte, ma <b>a una sola caratteristica per turno</b> — a Velocità, Attacco, Difesa o Gittata. Finché è chiusa, la cassa conta come un Muro (blocca movimento e Linea di Vista). Il Bottino non speso si perde a fine livello.</p>
+
+      <p><b>Nuove Classi.</b></p>
+      <p>🧛 <b>Negromante</b> — una volta per Livello, in Fase Azione, perdi 1 Salute per infliggere 1 danno ignorando la Difesa.</p>
+      <p>✨ <b>Chierico</b> — se i tre dadi Energia escono tutti uguali, li aumenti tutti di 2 (max 6).</p>
+      <p>🐴 <b>Cavaliere</b> — una volta per Livello, puoi assegnare due dadi alla stessa caratteristica (sommandoli).</p>
+      <p>🗝️ <b>Ladro</b> — una volta per Livello, +1 al valore di tutti i dadi lanciati, senza tetto massimo.</p>
+
+      <p><b>Lo scontro contro i Boss.</b> Dopo i livelli 3, 6 e 9 affronti uno dei comandanti di M'Guf-yn; dopo il 12° M'Guf-yn in persona. I livelli Boss non hanno Casse del Tesoro, ma puoi usare il Bottino non speso nel livello precedente (viene poi scartato a fine scontro). Prima del Boss non puoi potenziare un'Abilità né curarti: potrai farlo solo dopo, se sarai ancora vivo. Il Dungeon del Boss è a tutti gli effetti un'estensione del livello appena concluso.</p>
+
+      <p><b>🃏 Carte Oggetto.</b> A inizio partita ricevi 3 carte casuali, ciascuna usabile una sola volta e solo in determinate fasi di gioco.</p>
+    </div>
+  `;
+  m.querySelector('#instrCloseBtn').onclick = ()=>{ bg.classList.add('hidden'); };
+  bg.classList.remove('hidden');
+}
+
 document.getElementById('newGameBtn').onclick = ()=>{ showClassSelect(); };
 document.getElementById('expansionsBtn').onclick = ()=>{ showExpansionSelect(); };
+document.getElementById('infoBtnSplash').onclick = ()=>{ showInstructions(); };
+document.getElementById('infoBtnGame').onclick = ()=>{ showInstructions(); };
 
 document.getElementById('continueBtn2').onclick = ()=>{
   const save = loadSave();

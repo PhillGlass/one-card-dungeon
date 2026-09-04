@@ -194,12 +194,20 @@
 
   .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; z-index:50;
     padding: max(16px, calc(env(safe-area-inset-top) + 10px)) 16px max(16px, calc(env(safe-area-inset-bottom) + 10px)) 16px; }
-  .modal{ background:linear-gradient(180deg,var(--stone),#1a130f); border:3px solid var(--gold); border-radius:14px; padding:18px; max-width:380px; width:100%; text-align:center;
-    max-height:calc(100vh - var(--modal-vpad)); max-height:calc(100dvh - var(--modal-vpad)); overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; }
+  /* .modal e' ora il box FISSO (non scorre): contiene solo la X di chiusura
+     (fuori dall'area di scroll, quindi sempre visibile) e ".modal-scroll",
+     che e' l'unica parte che scorre quando il contenuto e' troppo lungo. */
+  .modal{ background:linear-gradient(180deg,var(--stone),#1a130f); border:3px solid var(--gold); border-radius:14px; max-width:380px; width:100%; text-align:center;
+    max-height:calc(100vh - var(--modal-vpad)); max-height:calc(100dvh - var(--modal-vpad));
+    display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .modal-scroll{ padding:18px; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; }
   .modal-close{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--gold);
-    background:var(--stone-2); color:var(--parchment); font-size:.95rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    background:var(--stone-2); color:var(--parchment); font-size:.95rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2; }
   .modal h2{ font-family:'Cinzel Decorative',serif; color:var(--gold-bright); margin-top:0;}
+  .modal h3{ font-family:'Cinzel',serif; color:var(--gold-bright); font-size:.9rem; letter-spacing:.03em; margin:18px 0 6px; border-top:1px solid rgba(201,162,75,.3); padding-top:12px; }
+  .modal-scroll h3:first-child{ border-top:none; padding-top:0; margin-top:8px; }
   .modal p{ font-size:.88rem; line-height:1.5; }
+  .modal p b{ color:var(--gold-bright); }
   .choice-row{ display:flex; gap:8px; margin:12px 0; }
   .choice-row .btn{ font-size:.68rem; }
   .skill-choice{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
@@ -225,6 +233,9 @@
   .home-btn{ position:absolute; left:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     background:var(--stone-2); border:1px solid var(--gold); border-radius:8px; color:var(--gold-bright); font-size:.95rem; cursor:pointer; }
   .home-btn:active{ transform:translateY(1px); }
+  .info-btn{ position:absolute; right:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    background:var(--stone-2); border:1px solid var(--gold); border-radius:8px; color:var(--gold-bright); font-size:.95rem; cursor:pointer; }
+  .info-btn:active{ transform:translateY(1px); }
 
   .splash-body{ display:flex; flex-direction:column; gap:12px; margin-top:40px; padding:12px; }
   .splash-icon-top{ text-align:center; font-size:2rem; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
