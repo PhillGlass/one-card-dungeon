@@ -206,8 +206,6 @@
     max-height:calc(100vh - var(--modal-vpad)); max-height:calc(100dvh - var(--modal-vpad));
     display:flex; flex-direction:column; overflow:hidden; position:relative; }
   .modal-scroll{ padding:18px; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; }
-  .modal-close{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--gold);
-    background:var(--stone-2); color:var(--parchment); font-size:.95rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2; }
   .modal h2{ font-family:'Cinzel Decorative',serif; color:var(--gold-bright); margin-top:0;}
   .modal h3{ font-family:'Cinzel',serif; color:var(--gold-bright); font-size:.9rem; letter-spacing:.03em; margin:18px 0 6px; border-top:1px solid rgba(201,162,75,.3); padding-top:12px; }
   .modal-scroll h3:first-child{ border-top:none; padding-top:0; margin-top:8px; }
@@ -243,12 +241,26 @@
      contengono solo l'icona (Home, Info, chiusura modal). */
   .icon{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; flex-shrink:0; }
   .icon-lg{ width:18px; height:18px; }
+  /* -webkit-appearance:none (+ affini) evita che iOS Safari applichi la sua
+     forma/dimensione nativa al <button>: è la causa più probabile per cui
+     la X appariva ovale su iPhone e circolare su desktop nonostante
+     width/height identici. box-sizing:border-box + padding:0 garantiscono
+     che le dimensioni dichiarate siano quelle effettive ovunque. */
+  .home-btn, .info-btn, .modal-close{
+    -webkit-appearance:none; -moz-appearance:none; appearance:none;
+    box-sizing:border-box; padding:0; margin:0;
+  }
   .home-btn{ position:absolute; left:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     background:var(--stone-2); border:1px solid var(--gold); border-radius:8px; color:var(--gold-bright); font-size:.95rem; cursor:pointer; }
   .home-btn:active{ transform:translateY(1px); }
   .info-btn{ position:absolute; right:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     background:var(--stone-2); border:1px solid var(--gold); border-radius:8px; color:var(--gold-bright); font-size:.95rem; cursor:pointer; }
   .info-btn:active{ transform:translateY(1px); }
+  /* Stessa estetica (giallo/rettangolo stondato) di Home e Info, non più il
+     cerchio dorato/pergamena di prima. */
+  .modal-close{ position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:8px; border:1px solid var(--gold);
+    background:var(--stone-2); color:var(--gold-bright); line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2; }
+  .modal-close:active{ transform:translateY(1px); }
 
   .splash-body{ display:flex; flex-direction:column; gap:12px; margin-top:40px; padding:12px; }
   .splash-icon-top{ text-align:center; font-size:2rem; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
