@@ -96,6 +96,24 @@ const GRID = 5;
 const MAX_LEVEL = 12;
 
 /* ============================================================
+   ICONE UI — SVG inline al posto delle emoji di sistema
+   ------------------------------------------------------------
+   Le emoji cambiano aspetto da un dispositivo all'altro (e alcune, come
+   "ℹ️", sono poco leggibili/coerenti con lo stile del gioco). Queste poche
+   icone di interfaccia (chiudi, home, info, freccia "continua", "nuovo")
+   sono invece SVG inline in stile a tratto: ereditano il colore del testo
+   (stroke="currentColor"), quindi si adattano automaticamente a qualsiasi
+   colore/tema usato nel bottone che le contiene.
+   ============================================================ */
+const ICONS = {
+  close: '<svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  home: '<svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 4l8.5 6.5"/><path d="M5.5 9.5V19a1 1 0 0 0 1 1h3.5v-6h4v6H17.5a1 1 0 0 0 1-1V9.5"/></svg>',
+  info: '<svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11.5v5"/><circle cx="12" cy="7.6" r="1" fill="currentColor" stroke="none"/></svg>',
+  arrowRight: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="m13 5 7 7-7 7"/></svg>',
+  sparkle: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c0 4.2-1.1 6.3-3.1 8.3S3 14 3 14s3.8 1.5 5.9 3.6S12 21 12 21s0-4.2 2.1-6.4S21 12 21 12s-3.8-1.5-5.9-3.6S12 3 12 3z"/></svg>',
+};
+
+/* ============================================================
    IMMAGINI (PNG) — caricamento automatico con fallback emoji
    ------------------------------------------------------------
    Nemici, boss e classi possono avere un'immagine PNG al posto
@@ -1303,7 +1321,7 @@ function showClassSelect(){
   const active = loadActiveExpansions();
   const visibleClasses = Object.entries(CLASSES).filter(([id,c])=> !c.expansion || active[c.expansion]);
   m.innerHTML = `
-    <button class="modal-close" id="classCloseBtn" aria-label="Chiudi">✕</button>
+    <button class="modal-close" id="classCloseBtn" aria-label="Chiudi">${ICONS.close}</button>
     <div class="modal-scroll">
       <h2>⚔ Scegli il tuo Eroe</h2>
       <div id="classList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
@@ -1335,7 +1353,7 @@ function showItemCards(){
   if(!state.itemCards.length) return;
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   m.innerHTML = `
-    <button class="modal-close" id="cardsCloseBtn" aria-label="Chiudi">✕</button>
+    <button class="modal-close" id="cardsCloseBtn" aria-label="Chiudi">${ICONS.close}</button>
     <div class="modal-scroll">
       <h2>🃏 Le tue Carte</h2>
       <div id="cardsList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
@@ -1784,10 +1802,10 @@ function render(){
   rollBtn.classList.toggle('hidden', state.phase!=='roll');
   endTurnBtn.classList.toggle('hidden', state.phase!=='act' && !awaitingLootConfirm);
   if(awaitingLootConfirm){
-    endTurnBtn.textContent = 'Continua →';
+    endTurnBtn.innerHTML = `Continua ${ICONS.arrowRight}`;
     endTurnBtn.onclick = confirmEnergyDone;
   } else {
-    endTurnBtn.textContent = 'Fine Turno →';
+    endTurnBtn.innerHTML = `Fine Turno ${ICONS.arrowRight}`;
     endTurnBtn.onclick = endTurn;
   }
   rollBtn.disabled = state.animating;
@@ -1806,7 +1824,7 @@ function renderSplash(){
   if(save){
     const cls = CLASSES[save.class] || CLASSES.none;
     const savedLevelLabel = save.levelPhase==='boss' ? `${save.level} · Boss` : `${save.level}`;
-    continueBtn.textContent = `▶ Continua — ${cls.icon} ${cls.name}, Livello ${savedLevelLabel}`;
+    continueBtn.innerHTML = `${ICONS.arrowRight} Continua — ${cls.icon} ${cls.name}, Livello ${savedLevelLabel}`;
     continueBtn.classList.remove('hidden');
   } else {
     continueBtn.classList.add('hidden');
@@ -1843,7 +1861,7 @@ function showExpansionSelect(){
   const render2 = ()=>{
     const active = loadActiveExpansions();
     m.innerHTML = `
-      <button class="modal-close" id="expCloseBtn" aria-label="Chiudi">✕</button>
+      <button class="modal-close" id="expCloseBtn" aria-label="Chiudi">${ICONS.close}</button>
       <div class="modal-scroll">
         <h2>👑 Espansioni</h2>
         <p style="font-size:.8rem;">Attiva le espansioni che vuoi usare nella tua prossima "Nuova Partita" (sono combinabili tra loro). Puoi cambiarle in qualsiasi momento da qui.</p>
@@ -1885,7 +1903,7 @@ function showGame(){
 function showInstructions(){
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   m.innerHTML = `
-    <button class="modal-close" id="instrCloseBtn" aria-label="Chiudi">✕</button>
+    <button class="modal-close" id="instrCloseBtn" aria-label="Chiudi">${ICONS.close}</button>
     <div class="modal-scroll" style="text-align:left;">
       <h2 style="text-align:center;">📖 Come si Gioca</h2>
 

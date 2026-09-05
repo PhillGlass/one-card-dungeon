@@ -235,6 +235,14 @@
   .cardpanel-desc{ font-family:'EB Garamond', Georgia, serif; font-feature-settings:"lnum" 1, "pnum" 1; font-variant-numeric:lining-nums; font-size:.72rem; opacity:.8; color:#fff3e2; margin-top:4px; line-height:1.35; }
 
   header{ position:relative; }
+  /* Icone SVG inline (vedi ICONS in app.js): ereditano il colore del testo
+     tramite currentColor, quindi seguono da sole il colore del bottone che
+     le contiene senza bisogno di regole dedicate per ciascun contesto.
+     ".icon" = dimensione relativa al font, per le icone in linea col testo
+     (es. "Continua →"); ".icon-lg" = dimensione fissa, per i bottoni che
+     contengono solo l'icona (Home, Info, chiusura modal). */
+  .icon{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; flex-shrink:0; }
+  .icon-lg{ width:18px; height:18px; }
   .home-btn{ position:absolute; left:0; top:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     background:var(--stone-2); border:1px solid var(--gold); border-radius:8px; color:var(--gold-bright); font-size:.95rem; cursor:pointer; }
   .home-btn:active{ transform:translateY(1px); }
