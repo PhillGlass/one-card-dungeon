@@ -31,12 +31,34 @@
       <label for="authEmail">Email</label>
       <input type="email" id="authEmail" required autocomplete="email">
     </div>
-    <div>
+    <div id="authPasswordWrap">
       <label for="authPassword">Password</label>
       <input type="password" id="authPassword" required autocomplete="current-password" minlength="6">
     </div>
+    <a href="#" class="auth-forgot" id="forgotPasswordLink">Password dimenticata?</a>
     <button type="submit" class="btn" id="authSubmitBtn">Accedi</button>
     <div class="auth-switch" id="authSwitchText"></div>
+  </form>
+</div>
+
+<!-- ============ RESET PASSWORD SCREEN (link ricevuto per email) ============ -->
+<div class="card hidden" id="resetPasswordScreen">
+  <header>
+    <div class="splash-icon-top">⚔️</div>
+    <h1 class="splash-title">ONE CARD<br>DUNGEON</h1>
+    <div class="sub">Imposta una nuova password</div>
+  </header>
+  <form class="auth-form" id="resetPasswordForm">
+    <div class="auth-error hidden" id="resetError"></div>
+    <div>
+      <label for="newPassword">Nuova password</label>
+      <input type="password" id="newPassword" required autocomplete="new-password" minlength="6">
+    </div>
+    <div>
+      <label for="newPasswordConfirm">Conferma password</label>
+      <input type="password" id="newPasswordConfirm" required autocomplete="new-password" minlength="6">
+    </div>
+    <button type="submit" class="btn" id="resetSubmitBtn">Salva nuova password</button>
   </form>
 </div>
 

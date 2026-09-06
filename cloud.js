@@ -14,18 +14,27 @@ let persistTimer = null;
 /* ---------- helpers UI ---------- */
 function $(id){ return document.getElementById(id); }
 function showScreen(id){
-  ['authScreen','loadingScreen','splashScreen','gameScreen'].forEach(s=>{
+  ['authScreen','loadingScreen','splashScreen','gameScreen','resetPasswordScreen'].forEach(s=>{
     $(s).classList.toggle('hidden', s!==id);
   });
   $('modalBg').classList.add('hidden');
 }
 function setAuthMode(mode){
-  $('authTitle').textContent = mode==='login' ? 'Accedi' : 'Registrati';
-  $('authSubmitBtn').textContent = mode==='login' ? 'Accedi' : 'Crea account';
-  $('authSwitchText').innerHTML = mode==='login'
-    ? `Non hai un account? <a id="authSwitchLink">Registrati</a>`
-    : `Hai già un account? <a id="authSwitchLink">Accedi</a>`;
-  $('authSwitchLink').onclick = ()=> setAuthMode(mode==='login' ? 'register' : 'login');
+  // mode: 'login' | 'register' | 'forgot'
+  $('authPasswordWrap').classList.toggle('hidden', mode==='forgot');
+  $('forgotPasswordLink').classList.toggle('hidden', mode!=='login');
+  if(mode==='forgot'){
+    $('authTitle').textContent = 'Recupera password';
+    $('authSubmitBtn').textContent = 'Invia link di reset';
+    $('authSwitchText').innerHTML = `Ricordi la password? <a id="authSwitchLink">Accedi</a>`;
+  } else {
+    $('authTitle').textContent = mode==='login' ? 'Accedi' : 'Registrati';
+    $('authSubmitBtn').textContent = mode==='login' ? 'Accedi' : 'Crea account';
+    $('authSwitchText').innerHTML = mode==='login'
+      ? `Non hai un account? <a id="authSwitchLink">Registrati</a>`
+      : `Hai già un account? <a id="authSwitchLink">Accedi</a>`;
+  }
+  $('authSwitchLink').onclick = ()=> setAuthMode(mode==='forgot' ? 'login' : (mode==='login' ? 'register' : 'login'));
   $('authForm').dataset.mode = mode;
   $('authError').classList.add('hidden');
   $('authInfo').classList.add('hidden');
@@ -79,7 +88,12 @@ function backToAuth(){
   showScreen('authScreen');
 }
 
-/* ---------- form login/registrazione ---------- */
+/* ---------- form login/registrazione/recupero password ---------- */
+$('forgotPasswordLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  setAuthMode('forgot');
+});
+
 $('authForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const mode = $('authForm').dataset.mode;
@@ -89,7 +103,12 @@ $('authForm').addEventListener('submit', async (e)=>{
   $('authInfo').classList.add('hidden');
   $('authSubmitBtn').disabled = true;
   try{
-    if(mode==='register'){
+    if(mode==='forgot'){
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+      if(error) throw error;
+      $('authInfo').textContent = 'Ti abbiamo inviato un\'email con il link per impostare una nuova password.';
+      $('authInfo').classList.remove('hidden');
+    } else if(mode==='register'){
       const { data, error } = await sb.auth.signUp({ email, password });
       if(error) throw error;
       if(data.session){
@@ -112,6 +131,35 @@ $('authForm').addEventListener('submit', async (e)=>{
   }
 });
 
+/* ---------- reset password: link cliccato dall'email ----------
+   Supabase (con detectSessionInUrl, attivo di default) legge da solo il
+   token presente nell'URL dopo il redirect e apre una sessione di
+   "recovery", segnalata con questo evento — a quel punto mostriamo il
+   form per la nuova password invece della Home. */
+
+$('resetPasswordForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const pw1 = $('newPassword').value;
+  const pw2 = $('newPasswordConfirm').value;
+  $('resetError').classList.add('hidden');
+  if(pw1 !== pw2){
+    $('resetError').textContent = 'Le due password non coincidono.';
+    $('resetError').classList.remove('hidden');
+    return;
+  }
+  $('resetSubmitBtn').disabled = true;
+  try{
+    const { data, error } = await sb.auth.updateUser({ password: pw1 });
+    if(error) throw error;
+    await enterApp(data.user);
+  } catch(err){
+    $('resetError').textContent = err.message || 'Errore. Riprova.';
+    $('resetError').classList.remove('hidden');
+  } finally {
+    $('resetSubmitBtn').disabled = false;
+  }
+});
+
 /* ---------- logout (bottone nella schermata iniziale) ---------- */
 document.addEventListener('DOMContentLoaded', ()=>{
   const logoutBtn = $('logoutBtn');
@@ -123,13 +171,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
-/* ---------- avvio: c'è già una sessione valida? ---------- */
-(async function init(){
-  setAuthMode('login');
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session && session.user){
-    await enterApp(session.user);
-  } else {
-    showScreen('authScreen');
+/* ---------- avvio: c'è già una sessione valida? ---------- oppure link di
+   reset password appena cliccato dall'email?
+   Tutto passa da qui (un solo listener, niente controlli doppi/in corsa
+   con getSession()): "INITIAL_SESSION" è il primo evento emesso, sempre,
+   con lo stato di sessione corrente (utente loggato o no); se invece la
+   pagina si apre da un link di recovery, "PASSWORD_RECOVERY" arriva prima
+   ed ha la precedenza, mostrando il form per la nuova password. */
+setAuthMode('login');
+let handledInitialSession = false;
+sb.auth.onAuthStateChange((event, session)=>{
+  if(event === 'PASSWORD_RECOVERY'){
+    handledInitialSession = true;
+    showScreen('resetPasswordScreen');
+    return;
   }
-})();
+  if(event === 'INITIAL_SESSION'){
+    handledInitialSession = true;
+    if(session && session.user){ enterApp(session.user); }
+    else { showScreen('authScreen'); }
+  }
+});
+// Sicurezza: se per qualche motivo "INITIAL_SESSION" non arrivasse (client
+// più vecchio), non restare bloccati sulla schermata vuota.
+setTimeout(()=>{ if(!handledInitialSession) showScreen('authScreen'); }, 2500);

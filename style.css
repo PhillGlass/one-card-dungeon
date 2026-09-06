@@ -315,6 +315,8 @@
 .auth-form input:focus{ outline:none; border-color:var(--gold); }
 .auth-switch{ text-align:center; font-size:.75rem; color:var(--parchment-dim); margin-top:6px; }
 .auth-switch a{ color:var(--gold-bright); cursor:pointer; text-decoration:underline; }
+.auth-forgot{ display:block; text-align:right; font-size:.7rem; color:var(--parchment-dim); margin-top:-4px; text-decoration:underline; cursor:pointer; }
+.auth-forgot:hover{ color:var(--gold-bright); }
 .auth-error{ background:rgba(139,46,46,.25); border:1px solid var(--blood); color:#f2c9c9; border-radius:8px;
   padding:8px 10px; font-size:.78rem; text-align:center; }
 .auth-info{ background:rgba(90,115,80,.2); border:1px solid var(--moss); color:var(--green-bright); border-radius:8px;
