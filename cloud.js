@@ -6,6 +6,19 @@
    può leggerla o scriverla).
    ============================================================ */
 
+// IMPORTANTE: questo controllo va fatto QUI, prima di creare il client
+// Supabase — appena "createClient" viene chiamato (riga sotto), la libreria
+// legge da sola l'URL e ne rimuove il token (history.replaceState), quindi
+// un controllo fatto più avanti nel codice troverebbe l'URL già "pulito" e
+// non riconoscerebbe più il link di reset password. Fotografiamo subito il
+// risultato in una costante e lo usiamo ovunque serva, invece di rileggere
+// l'URL più tardi.
+let WAS_PASSWORD_RECOVERY_URL = (function(){
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  return hash.includes('type=recovery') || search.includes('type=recovery');
+})();
+
 // flowType:'implicit' → il link di reset contiene direttamente il token
 // nell'URL (dopo #), invece del flusso PKCE (che manda solo un "code" e
 // richiede di essere aperto nello stesso browser/contesto che ha fatto la
@@ -165,6 +178,10 @@ $('resetPasswordForm').addEventListener('submit', async (e)=>{
   try{
     const { data, error } = await sb.auth.updateUser({ password: pw1 });
     if(error) throw error;
+    // Password impostata: da qui in avanti l'utente è "davvero" loggato,
+    // non deve più restare bloccato sulla schermata di reset dagli eventi
+    // successivi (vedi il gate su WAS_PASSWORD_RECOVERY_URL più sotto).
+    WAS_PASSWORD_RECOVERY_URL = false;
     await enterApp(data.user);
   } catch(err){
     $('resetError').textContent = err.message || 'Errore. Riprova.';
@@ -187,35 +204,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 /* ---------- avvio: c'è già una sessione valida? ---------- oppure link di
    reset password appena cliccato dall'email?
-   Tutto passa da qui (un solo listener, niente controlli doppi/in corsa
-   con getSession()): "INITIAL_SESSION" è il primo evento emesso, sempre,
-   con lo stato di sessione corrente (utente loggato o no); se invece la
-   pagina si apre da un link di recovery, "PASSWORD_RECOVERY" arriva prima
-   ed ha la precedenza, mostrando il form per la nuova password.
-   In più, controlliamo anche direttamente l'URL ("type=recovery"): è la
-   stessa verifica che raccomanda Supabase, come rete di sicurezza nel
-   caso l'evento non arrivasse per qualche motivo (versione del client,
-   timing) — a quel punto forziamo comunque la schermata di reset. */
-function isPasswordRecoveryUrl(){
-  const hash = window.location.hash || '';
-  const search = window.location.search || '';
-  return hash.includes('type=recovery') || search.includes('type=recovery');
-}
+   Il gate è SOLO "WAS_PASSWORD_RECOVERY_URL" (fotografato in cima al file,
+   prima che Supabase potesse alterare l'URL): se true, mostriamo SEMPRE la
+   schermata di reset, indipendentemente da quale evento arrivi da
+   onAuthStateChange (che con alcune versioni/flussi può segnalare la
+   sessione di recovery come un banale "INITIAL_SESSION"/"SIGNED_IN" invece
+   di "PASSWORD_RECOVERY" — motivo per cui prima si finiva loggati dritti
+   in partita senza passare dal form della nuova password). */
 setAuthMode('login');
 let handledInitialSession = false;
-if(isPasswordRecoveryUrl()){
+if(WAS_PASSWORD_RECOVERY_URL){
   handledInitialSession = true;
   showScreen('resetPasswordScreen');
 }
 sb.auth.onAuthStateChange((event, session)=>{
-  if(event === 'PASSWORD_RECOVERY'){
+  if(WAS_PASSWORD_RECOVERY_URL){
+    // Qualunque cosa dica l'evento, restiamo sulla schermata di reset:
+    // la sessione stabilita da questo link serve solo a poter chiamare
+    // updateUser(), non a entrare in partita.
     handledInitialSession = true;
     showScreen('resetPasswordScreen');
     return;
   }
   if(event === 'INITIAL_SESSION'){
     handledInitialSession = true;
-    if(isPasswordRecoveryUrl()) return; // non sovrascrivere la schermata di reset
     if(session && session.user){ enterApp(session.user); }
     else { showScreen('authScreen'); }
   }
