@@ -30,7 +30,12 @@ function showScreen(id){
 }
 function setAuthMode(mode){
   // mode: 'login' | 'register' | 'forgot'
+  // In modalità "forgot" il campo password è nascosto: deve anche perdere
+  // "required", altrimenti il browser blocca il submit del form in modo
+  // silenzioso (nessun errore visibile, perché il campo bloccante non si
+  // vede) e la richiesta di reset non parte mai.
   $('authPasswordWrap').classList.toggle('hidden', mode==='forgot');
+  $('authPassword').required = (mode!=='forgot');
   $('forgotPasswordLink').classList.toggle('hidden', mode!=='login');
   if(mode==='forgot'){
     $('authTitle').textContent = 'Recupera password';
