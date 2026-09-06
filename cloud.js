@@ -6,7 +6,16 @@
    può leggerla o scriverla).
    ============================================================ */
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// flowType:'implicit' → il link di reset contiene direttamente il token
+// nell'URL (dopo #), invece del flusso PKCE (che manda solo un "code" e
+// richiede di essere aperto nello stesso browser/contesto che ha fatto la
+// richiesta — motivo tipico per cui il link "funzionava" ma non attivava
+// la schermata di reset password: l'exchange del code falliva in silenzio
+// se l'email veniva aperta in un altro browser/app). Con l'implicito il
+// link è autosufficiente e funziona ovunque venga aperto.
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { flowType: 'implicit' }
+});
 
 let currentUser = null;
 let persistTimer = null;
@@ -177,9 +186,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
    con getSession()): "INITIAL_SESSION" è il primo evento emesso, sempre,
    con lo stato di sessione corrente (utente loggato o no); se invece la
    pagina si apre da un link di recovery, "PASSWORD_RECOVERY" arriva prima
-   ed ha la precedenza, mostrando il form per la nuova password. */
+   ed ha la precedenza, mostrando il form per la nuova password.
+   In più, controlliamo anche direttamente l'URL ("type=recovery"): è la
+   stessa verifica che raccomanda Supabase, come rete di sicurezza nel
+   caso l'evento non arrivasse per qualche motivo (versione del client,
+   timing) — a quel punto forziamo comunque la schermata di reset. */
+function isPasswordRecoveryUrl(){
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  return hash.includes('type=recovery') || search.includes('type=recovery');
+}
 setAuthMode('login');
 let handledInitialSession = false;
+if(isPasswordRecoveryUrl()){
+  handledInitialSession = true;
+  showScreen('resetPasswordScreen');
+}
 sb.auth.onAuthStateChange((event, session)=>{
   if(event === 'PASSWORD_RECOVERY'){
     handledInitialSession = true;
@@ -188,6 +210,7 @@ sb.auth.onAuthStateChange((event, session)=>{
   }
   if(event === 'INITIAL_SESSION'){
     handledInitialSession = true;
+    if(isPasswordRecoveryUrl()) return; // non sovrascrivere la schermata di reset
     if(session && session.user){ enterApp(session.user); }
     else { showScreen('authScreen'); }
   }
