@@ -206,6 +206,10 @@
     max-height:calc(100vh - var(--modal-vpad)); max-height:calc(100dvh - var(--modal-vpad));
     display:flex; flex-direction:column; overflow:hidden; position:relative; }
   .modal-scroll{ padding:18px; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; }
+  /* Scettro nella modal di Vittoria: immagine se disponibile, altrimenti
+     l'emoji 👑 alla stessa dimensione — vedi showVictory() in app.js. */
+  .victory-sceptre{ display:block; height:120px; width:auto; margin:0 auto 8px; filter:drop-shadow(0 4px 14px rgba(180,120,255,.55)); }
+  .victory-sceptre-emoji{ font-size:4.5rem; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
   .modal h2{ font-family:'Cinzel Decorative',serif; color:var(--gold-bright); margin-top:0;}
   .modal h3{ font-family:'Cinzel',serif; color:var(--gold-bright); font-size:.9rem; letter-spacing:.03em; margin:18px 0 6px; border-top:1px solid rgba(201,162,75,.3); padding-top:12px; }
   .modal-scroll h3:first-child{ border-top:none; padding-top:0; margin-top:8px; }
