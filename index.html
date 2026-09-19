@@ -11,6 +11,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="One Card Dungeon">
 <link rel="apple-touch-icon" href="images/icons/apple-touch-icon.png">
+<!-- Equivalente Android/Chrome dell'"Aggiungi a Home" di iOS: web app
+     manifest + service worker minimo (vedi manifest.json e sw.js), perché
+     Chrome offra "Installa app"/"Aggiungi a schermata Home" e la apra a
+     schermo intero, senza barra degli indirizzi. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#181310">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cinzel+Decorative:wght@700&family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -126,5 +132,16 @@
 <script src="supabase-config.js"></script>
 <script src="app.js"></script>
 <script src="cloud.js"></script>
+<script>
+  // Registrazione del service worker (vedi sw.js) — necessaria perché
+  // Chrome/Android consideri l'app "installabile" a schermo intero.
+  // Il .catch evita che un eventuale fallimento (es. in locale senza
+  // HTTPS) blocchi il resto del gioco.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+</script>
 </body>
 </html>
