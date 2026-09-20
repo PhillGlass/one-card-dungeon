@@ -139,7 +139,8 @@
   // HTTPS) blocchi il resto del gioco.
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('sw.js').catch(()=>{});
+      navigator.serviceWorker.register('sw.js', { scope: './' })
+        .catch(err => console.error('Registrazione service worker fallita:', err));
     });
   }
 </script>
