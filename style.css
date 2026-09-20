@@ -24,7 +24,13 @@
     --vpad: calc(max(10px, env(safe-area-inset-top)) + max(16px, env(safe-area-inset-bottom)));
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;background:var(--ink);}
+  /* overscroll-behavior:none evita il gesto nativo "pull-to-refresh" dei
+     browser mobile: un piccolo scroll/trascinamento verticale accidentale
+     (molto facile su schermo touch, impossibile con mouse — da qui il
+     fatto che il problema non si vedesse da desktop) altrimenti veniva
+     interpretato come "tira per aggiornare" e ricaricava la pagina intera,
+     perdendo lo stato di gioco. Non è legato alle modifiche PWA. */
+  html,body{margin:0;padding:0;background:var(--ink); overscroll-behavior:none; touch-action:manipulation;}
   body{
     /* EB Garamond al posto di IM Fell English: stessa atmosfera "libro
        antico", ma con le cifre "lining" (font-feature-settings sotto)
