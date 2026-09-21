@@ -2119,8 +2119,8 @@ function showVictory() {
     <h2 style="color:var(--gold-bright)">👑 Vittoria!</h2>
     <p>${
       bossVictory
-        ? `Hai sconfitto <b>M'Guf-yn</b> in persona e riconquistato lo <b>Scettro</b>. Il suo potere è immenso, usalo con parsimonia!`
-        : `Hai abbattuto tutti i mostri del Livello 12 e conquistato lo <b>Scettro di M'Guf-yn</b>. Il suo potere è immenso, usalo con parsimonia!`
+        ? `Hai sconfitto <b>M'Guf-yn</b> in persona e riconquistato il suo <b>Scettro</b>. Il suo potere è immenso, usalo con parsimonia!`
+        : `Hai abbattuto tutti i mostri del Dungeon e conquistato lo <b>Scettro di M'Guf-yn</b>. Il suo potere è immenso, usalo con parsimonia!`
     }</p>
     <button class="btn gold" id="againBtn">Torna al Menu</button>
     </div>`;
