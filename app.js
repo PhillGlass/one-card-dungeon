@@ -719,6 +719,69 @@ function spawnFloatText(x,y,text,cls){
   setTimeout(()=>el.remove(), 950);
 }
 
+// Piccolo lampo bianco simile a un fendente di lama, ancorato al centro
+// della cella colpita — stesso sistema di coordinate di spawnFloatText.
+// Genera anche qualche minuscola particella che si allontana dal fascio.
+function spawnSlashFx(x,y){
+  const layer=document.getElementById('fxLayer');
+  if(!layer) return;
+  const cx = ((x+0.5)/GRID*100)+'%', cy = ((y+0.5)/GRID*100)+'%';
+  // Angolazione un po' casuale ad ogni colpo, per non farlo sembrare sempre
+  // lo stesso identico "timbro".
+  const angleDeg = -45 + Math.random()*30;
+  const el=document.createElement('div');
+  el.className='slash-fx';
+  el.style.left = cx; el.style.top = cy;
+  el.style.setProperty('--slash-angle', angleDeg+'deg');
+  layer.appendChild(el);
+  setTimeout(()=>el.remove(), 300);
+
+  const angleRad = angleDeg * Math.PI/180;
+  for(let i=0;i<6;i++){
+    const p=document.createElement('div');
+    p.className='slash-particle';
+    p.style.left = cx; p.style.top = cy;
+    // Le particelle si allontanano perpendicolarmente al fascio, con un
+    // po' di dispersione casuale attorno a quella direzione.
+    const side = Math.random()<0.5 ? 1 : -1;
+    const dirAngle = angleRad + side*(Math.PI/2) + (Math.random()-0.5)*0.9;
+    const dist = 8 + Math.random()*14;
+    p.style.setProperty('--px', (Math.cos(dirAngle)*dist)+'px');
+    p.style.setProperty('--py', (Math.sin(dirAngle)*dist)+'px');
+    p.style.animationDelay = Math.round(Math.random()*40)+'ms';
+    layer.appendChild(p);
+    setTimeout(()=>p.remove(), 420);
+  }
+}
+
+// Trova il div .cell della griglia alle coordinate date (vedi data-x/data-y
+// impostati in renderGrid), per animarne il token senza dover ridisegnare.
+function cellEl(x,y){
+  return document.querySelector(`#grid .cell[data-x="${x}"][data-y="${y}"]`);
+}
+
+// "Affondo": il token dell'attaccante scatta di qualche pixel verso il
+// bersaglio e torna subito alla sua posizione — non è un vero spostamento
+// (la Gittata puo' essere maggiore di una cella), solo un gesto d'attacco.
+// Usa la Web Animations API nativa del browser: nessuna libreria in più.
+async function playLungeFx(fromX, fromY, toX, toY){
+  const cell = cellEl(fromX, fromY);
+  const tokenEl = cell && cell.querySelector('.token, .token-img');
+  if(!tokenEl || !tokenEl.animate){ return; }
+  const dx = toX - fromX, dy = toY - fromY;
+  const dist = Math.hypot(dx,dy) || 1;
+  const LUNGE_PX = 16;
+  const ox = (dx/dist) * LUNGE_PX, oy = (dy/dist) * LUNGE_PX;
+  try{
+    const anim = tokenEl.animate([
+      { transform:'translate(0,0)', offset:0 },
+      { transform:`translate(${ox}px, ${oy}px)`, offset:0.35 },
+      { transform:'translate(0,0)', offset:1 },
+    ], { duration:130, easing:'ease-out' });
+    await anim.finished;
+  } catch(e){ /* browser molto vecchio: nessuna animazione, nessun errore bloccante */ }
+}
+
 // Animates dice "composing" their value (rapid random cycling that settles on
 // the real roll) before the real state update happens. lockedIndices are dice
 // shown immediately at their final value (e.g. Paladino's kept die). Accetta i
@@ -1050,12 +1113,19 @@ function handleCellClick(x,y){
   }
 }
 
-function attackSelected(){
+async function attackSelected(){
   if(state.animating) return;
   const m = state.selectedMonster;
   if(!m || !m.alive) return;
   const info = cellInfo(m.x, m.y);
   if(info.type!=='monster' || !info.canHit) return;
+  state.animating = true;
+  render(); // disabilita subito i bottoni per la durata dell'animazione
+  // Affondo e fendente partono insieme, nello stesso istante.
+  const lunge = playLungeFx(state.player.x, state.player.y, m.x, m.y);
+  spawnSlashFx(m.x, m.y);
+  await lunge;
+  state.animating = false;
   state.spent.atk += m.def;
   m.hp -= 1;
   spawnFloatText(m.x, m.y, '-1', 'dmg');
@@ -1248,10 +1318,16 @@ async function monsterAttackPhase(){
   }
 
   // Evidenzia ogni mostro attaccante uno alla volta, prima di applicare il danno totale.
+  // Stesso identico effetto (affondo + fendente) usato per il tuo attacco,
+  // solo diretto dal mostro verso di te, con lo stesso ritmo di prima tra
+  // un mostro e l'altro (un mostro alla volta, non tutti insieme).
   for(const m of attackers){
     state.animAttacker = m;
     render();
-    await sleep(380);
+    const lunge = playLungeFx(m.x, m.y, state.player.x, state.player.y);
+    spawnSlashFx(state.player.x, state.player.y);
+    await lunge;
+    await sleep(250);
   }
   state.animAttacker = null;
 
@@ -1702,6 +1778,10 @@ function renderGrid(){
     for(let x=0;x<GRID;x++){
       const cell=document.createElement('div');
       cell.className='cell';
+      // Coordinate in dataset: permettono di ritrovare la cella esatta dal
+      // DOM (es. per l'effetto di "affondo" dell'attacco, vedi playLungeFx).
+      cell.dataset.x = x;
+      cell.dataset.y = y;
       const k=key(x,y);
       const isWall = rawWallSet.has(k);
       const biome = currentTileBiome();
