@@ -1,7 +1,7 @@
 /* ============================================================
    OCD CLOUD — login/registrazione + salvataggio partita su Supabase
-   Sostituisce il vecchio salvataggio in localStorage: la partita e il
-   record vengono letti/scritti nella tabella "one_card_dungeon_game_saves", una riga
+   Sostituisce il vecchio salvataggio in localStorage: la partita, i
+   record e le statistiche vengono letti/scritti nella tabella "one_card_dungeon_game_saves", una riga
    per utente, protetta da Row Level Security (solo il proprietario
    può leggerla o scriverla).
    ============================================================ */
@@ -32,11 +32,16 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 let currentUser = null;
 let persistTimer = null;
+// true solo se il caricamento dei dati da Supabase è riuscito. Se fallisce
+// (rete assente, colonna mancante...) la cache resta vuota: senza questa
+// guardia il primo salvataggio successivo sovrascriverebbe su Supabase i
+// dati veri (partita, record, statistiche) con quelli vuoti.
+let cloudDataLoaded = false;
 
 /* ---------- helpers UI ---------- */
 function $(id){ return document.getElementById(id); }
 function showScreen(id){
-  ['authScreen','loadingScreen','splashScreen','gameScreen','resetPasswordScreen'].forEach(s=>{
+  ['authScreen','loadingScreen','splashScreen','recordsScreen','gameScreen','resetPasswordScreen'].forEach(s=>{
     $(s).classList.toggle('hidden', s!==id);
   });
   $('modalBg').classList.add('hidden');
@@ -71,19 +76,21 @@ function setAuthMode(mode){
 async function loadGameData(userId){
   const { data, error } = await sb
     .from('one_card_dungeon_game_saves')
-    .select('save, records, settings')
+    .select('save, records, settings, stats')
     .eq('user_id', userId)
     .maybeSingle();
   if(error){ console.error('Errore caricamento partita:', error); }
+  cloudDataLoaded = !error;
   window.__ocdCache.save = data ? data.save : null;
   window.__ocdCache.records = (data && data.records) ? data.records : {};
   window.__ocdCache.settings = (data && data.settings) ? data.settings : { expansions:{} };
+  window.__ocdCache.stats = (data && data.stats) ? data.stats : {};
 }
 
 /* ---------- scrittura (debounced) su Supabase ---------- */
 window.OCDCloud = {
   persist(){
-    if(!currentUser) return;
+    if(!currentUser || !cloudDataLoaded) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(async ()=>{
       const { error } = await sb.from('one_card_dungeon_game_saves').upsert({
@@ -91,6 +98,7 @@ window.OCDCloud = {
         save: window.__ocdCache.save,
         records: window.__ocdCache.records,
         settings: window.__ocdCache.settings,
+        stats: window.__ocdCache.stats,
         updated_at: new Date().toISOString()
       });
       if(error) console.error('Errore salvataggio su Supabase:', error);
@@ -103,6 +111,9 @@ async function enterApp(user){
   currentUser = user;
   showScreen('loadingScreen');
   await loadGameData(user.id);
+  if(!cloudDataLoaded){
+    alert('Non è stato possibile caricare i tuoi dati dal cloud. Per non sovrascriverli, in questa sessione il salvataggio è disattivato: ricarica la pagina e riprova.');
+  }
   $('userEmailLine').textContent = user.email || '';
   showScreen('splashScreen');
   window.OCDGame.showSplash();
@@ -110,7 +121,7 @@ async function enterApp(user){
 
 function backToAuth(){
   currentUser = null;
-  window.__ocdCache = { save: null, record: 0 };
+  window.__ocdCache = { save: null, records: {}, settings: { expansions: {} }, stats: {} };
   setAuthMode('login');
   showScreen('authScreen');
 }

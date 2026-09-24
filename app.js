@@ -183,9 +183,11 @@ function queueImgRerender(){
     imgRerenderQueued = false;
     const gameScreen = document.getElementById('gameScreen');
     const splashScreen = document.getElementById('splashScreen');
+    const recordsScreen = document.getElementById('recordsScreen');
     const modalBg = document.getElementById('modalBg');
     if(gameScreen && !gameScreen.classList.contains('hidden')) render();
     if(splashScreen && !splashScreen.classList.contains('hidden')) renderSplash();
+    if(recordsScreen && !recordsScreen.classList.contains('hidden')) renderRecords();
     if(modalBg && !modalBg.classList.contains('hidden') && document.getElementById('cardsList')) showItemCards();
   });
 }
@@ -367,7 +369,13 @@ const ITEM_CARDS = {
 };
 function discardCard(id){
   const i = state.itemCards.indexOf(id);
-  if(i>=0) state.itemCards.splice(i,1);
+  if(i>=0){
+    state.itemCards.splice(i,1);
+    // Ogni carta giocata passa da qui (Fiamma del Fato compresa, dopo la
+    // conferma): è l'unico punto in cui si conta l'uso per la statistica
+    // "carta preferita".
+    recordCardUse(id);
+  }
 }
 function itemAtkBonus(){ return (state.itemBonus && state.itemBonus.atk) || 0; }
 function itemRangeBonus(){ return (state.itemBonus && state.itemBonus.range) || 0; }
@@ -398,7 +406,7 @@ let state = null;
    così tutte le funzioni sotto restano SINCRONE come prima;
    ogni scrittura viene poi spedita a Supabase in background.
    ------------------------------------------------------------ */
-window.__ocdCache = window.__ocdCache || { save: null, records: {}, settings: { expansions: {} } };
+window.__ocdCache = window.__ocdCache || { save: null, records: {}, settings: { expansions: {} }, stats: {} };
 
 function loadSave(){
   return window.__ocdCache.save;
@@ -412,9 +420,22 @@ function clearSave(){
   window.OCDCloud && window.OCDCloud.persist();
 }
 
-// Il record vale solo per "M'Guf-yn Returns attivo sì/no": le Carte Oggetto
-// (e in futuro Eternal Peak/Harbour Clash) non creano record separati.
-function modeKeyFor(expansions){ return (expansions && expansions.includes('mguf_yn_returns')) ? 'mguf_yn_returns' : 'vanilla'; }
+// Modalità di gioco per record e statistiche: la base (vanilla oppure
+// M'Guf-yn Returns) + il suffisso "+item_cards" se le Carte Oggetto sono
+// attive. Le due chiavi senza suffisso sono le stesse usate prima che
+// esistessero i record "con carte", quindi i vecchi record restano validi
+// senza alcuna migrazione delle chiavi. L'ordine di questo array è anche
+// l'ordine delle righe nella tabella dei record.
+const RECORD_MODES = [
+  { key:'vanilla',                    name:'Vanilla',                  icon:'⚔️' },
+  { key:'vanilla+item_cards',         name:'Vanilla + Carte',          icon:'⚔️🃏' },
+  { key:'mguf_yn_returns',            name:"M'Guf-yn Returns",         icon:'👑' },
+  { key:'mguf_yn_returns+item_cards', name:"M'Guf-yn Returns + Carte", icon:'👑🃏' },
+];
+function modeKeyFor(expansions){
+  const base = (expansions && expansions.includes('mguf_yn_returns')) ? 'mguf_yn_returns' : 'vanilla';
+  return (expansions && expansions.includes('item_cards')) ? base + '+item_cards' : base;
+}
 
 // "rank" codifica in un solo numero sia il livello sia la fase (normale/boss),
 // così i record restano facilmente confrontabili: livello 3 normale = 30,
@@ -426,29 +447,73 @@ function rankToLabel(rank){
   return isBoss ? `${level} · Boss` : `${level}`;
 }
 
-function loadRecord(expansionKey){
-  const key = expansionKey || 'vanilla';
-  return (window.__ocdCache.records && window.__ocdCache.records[key]) || 0;
+// Un record è { rank, class, won, at }: livello/fase raggiunti, eroe usato,
+// se la run è stata COMPLETATA (coppa) e quando è stato stabilito (epoch ms,
+// serve a sapere qual è il record battuto più di recente). Prima esisteva
+// solo il numero "rank": quei vecchi record vengono letti come "eroe
+// sconosciuto, non completato" (non si può dedurre se fossero vittorie).
+function normalizeRecord(raw){
+  if(typeof raw === 'number') return raw>0 ? { rank:raw, class:null, won:false, at:0 } : null;
+  if(raw && typeof raw==='object' && raw.rank>0){
+    return { rank:raw.rank, class:raw.class||null, won:!!raw.won, at:raw.at||0 };
+  }
+  return null;
 }
-function updateRecordIfHigher(rank, expansionKey){
-  const key = expansionKey || 'vanilla';
+function loadRecord(modeKey){
+  return normalizeRecord(window.__ocdCache.records && window.__ocdCache.records[modeKey]);
+}
+// Il nuovo risultato sostituisce il record se: prima non c'era nulla, oppure
+// completa la run mentre il record precedente no, oppure (a parità di
+// "completata sì/no") arriva più in profondità. A parità totale resta il
+// record più vecchio. NON persiste: lo fa finishRun() con clearSave().
+function saveRecordIfBetter(modeKey, rank, cls, won){
   if(!window.__ocdCache.records) window.__ocdCache.records = {};
-  if(rank > (window.__ocdCache.records[key]||0)){
-    window.__ocdCache.records[key] = rank;
-    window.OCDCloud && window.OCDCloud.persist();
-  }
+  const old = loadRecord(modeKey);
+  const better = !old || (won && !old.won) || (won===old.won && rank>old.rank);
+  if(better) window.__ocdCache.records[modeKey] = { rank, class:cls, won, at:Date.now() };
 }
+
+// Statistiche cumulative (colonna "stats" su Supabase). Tutto tranne l'uso
+// delle carte viene contato SOLO a fine partita (morte o vittoria): una
+// partita abbandonata (Nuova Partita sopra un salvataggio esistente) non
+// lascia traccia in record né statistiche. Le carte invece si contano al
+// momento dell'uso (vedi discardCard).
+//   byClass / byMode : partite concluse per eroe / per modalità
+//   deaths / wins    : partite concluse perse / vinte
+//   levelSum         : somma dei livelli raggiunti (un Boss vale il livello
+//                      del suo numero: 3 Boss = 3), per il livello medio
+//   cardUses         : quante volte è stata giocata ciascuna carta
+// Questa funzione normalizza sempre la struttura, così chi legge/scrive non
+// deve preoccuparsi di campi mancanti (colonna vuota = "{}").
+function statsRoot(){
+  const c = window.__ocdCache;
+  if(!c.stats || typeof c.stats!=='object') c.stats = {};
+  const s = c.stats;
+  ['byClass','byMode','cardUses'].forEach(k=>{ if(!s[k] || typeof s[k]!=='object') s[k] = {}; });
+  ['deaths','wins','levelSum'].forEach(k=>{ if(typeof s[k]!=='number') s[k] = 0; });
+  return s;
+}
+function recordCardUse(id){
+  const s = statsRoot();
+  s.cardUses[id] = (s.cardUses[id]||0) + 1;
+  window.OCDCloud && window.OCDCloud.persist();
+}
+
 // Una "partita completata" è una run finita (morte o vittoria): a quel punto
-// si aggiorna il record (della modalità giocata) col livello/fase raggiunti,
-// e si azzera la partita salvata. Le Carte Oggetto NON registrano alcun
-// record (né vanilla né M'Guf-yn Returns): una run con questo modulo attivo
-// non è direttamente comparabile alle altre, quindi si salta l'aggiornamento.
-function finishRun(){
-  const rank = levelRank(state.level, state.levelPhase);
-  const usesItemCards = state.expansions && state.expansions.includes('item_cards');
-  if(!usesItemCards){
-    updateRecordIfHigher(rank, modeKeyFor(state.expansions));
-  }
+// si aggiornano record e statistiche della modalità giocata e si azzera la
+// partita salvata. "won" è true solo se chiamata da showVictory().
+// L'ORDINE conta: clearSave() è l'ultima istruzione perché è lei a lanciare
+// il salvataggio su Supabase (con record e statistiche già aggiornati).
+function finishRun(won){
+  won = !!won;
+  const modeKey = modeKeyFor(state.expansions);
+  const cls = state.class || 'none';
+  saveRecordIfBetter(modeKey, levelRank(state.level, state.levelPhase), cls, won);
+  const s = statsRoot();
+  if(won) s.wins++; else s.deaths++;
+  s.levelSum += state.level;
+  s.byClass[cls] = (s.byClass[cls]||0) + 1;
+  s.byMode[modeKey] = (s.byMode[modeKey]||0) + 1;
   clearSave();
 }
 
@@ -1539,7 +1604,7 @@ function showLevelUp(){
 }
 
 function showGameOver(){
-  finishRun();
+  finishRun(false);
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   const levelLabel = state.levelPhase==='boss' ? `${state.level} · Boss` : `${state.level}`;
   m.innerHTML = `<div class="modal-scroll">
@@ -1552,7 +1617,7 @@ function showGameOver(){
 }
 
 function showVictory(){
-  finishRun();
+  finishRun(true);
   const bg=document.getElementById('modalBg'), m=document.getElementById('modalContent');
   const bossVictory = state.expansions.includes('mguf_yn_returns') && state.levelPhase==='boss';
   const sceptrePath = `items/${SCEPTRE_IMG}`;
@@ -1943,21 +2008,143 @@ function renderSplash(){
     heroBox.innerHTML = tokenMarkup(cls.icon, cls.img ? `classes/${cls.img}` : null, 'splash-hero-token');
   }
 
-  // Un record indipendente per modalità: vanilla + una riga per ogni espansione.
-  const recordBox = document.getElementById('recordBox');
-  const lines = [];
-  const vanillaRank = loadRecord(null);
-  if(vanillaRank>0) lines.push(`🏆 Vanilla — Livello ${rankToLabel(vanillaRank)}`);
-  Object.keys(EXPANSIONS).forEach(id=>{
-    const rank = loadRecord(id);
-    if(rank>0) lines.push(`🏆 ${EXPANSIONS[id].name} — Livello ${rankToLabel(rank)}`);
+  // Bottone "Record": la label mostra il record battuto più di recente
+  // (o solo "Record" se non ce n'è ancora nessuno).
+  document.getElementById('recordsBtn').textContent = recordsButtonLabel();
+}
+
+// Record battuto più di recente tra le 4 modalità. I vecchi record (senza
+// timestamp, at=0) contano come i più vecchi in assoluto; tra due record con
+// lo stesso timestamp vince quello più profondo.
+function latestRecord(){
+  let best = null;
+  RECORD_MODES.forEach(m=>{
+    const rec = loadRecord(m.key);
+    if(!rec) return;
+    if(!best || rec.at>best.rec.at || (rec.at===best.rec.at && rec.rank>best.rec.rank)){
+      best = { mode:m, rec };
+    }
   });
-  if(lines.length){
-    document.getElementById('recordVal').innerHTML = lines.join('<br>');
-    recordBox.classList.remove('hidden');
-  } else {
-    recordBox.classList.add('hidden');
-  }
+  return best;
+}
+function recordsButtonLabel(){
+  const last = latestRecord();
+  if(!last) return '🏆 Record';
+  return `🏆 ${last.mode.name} — ${last.rec.won ? 'Completato' : 'Livello ' + rankToLabel(last.rec.rank)}`;
+}
+
+/* ============================================================
+   SCHERMATA RECORD E STATISTICHE
+   ============================================================ */
+// Livello per la tabella: il numero grande e, se è una stanza Boss, una
+// piccola scritta "Boss" sotto (la colonna è stretta: "12 · Boss" in una riga
+// non ci starebbe alla dimensione del numero).
+function recordLevelMarkup(rank){
+  const level = Math.floor(rank/10);
+  const isBoss = (rank%10)===5;
+  return `${level}${isBoss ? '<small>Boss</small>' : ''}`;
+}
+
+// Chiave col conteggio più alto tra quelle "valide" (in ordine di
+// dichiarazione: a parità vince la prima). null se nessuna è mai stata usata.
+function topKey(counts, validKeys){
+  let best = null, bestN = 0;
+  validKeys.forEach(k=>{
+    const n = counts[k]||0;
+    if(n>bestN){ best = k; bestN = n; }
+  });
+  return best ? { key:best, n:bestN } : null;
+}
+
+function renderRecords(){
+  const body = document.getElementById('recordsBody');
+  if(!body) return;
+
+  // --- Tabella dei record ---
+  const rows = RECORD_MODES.map(m=>{
+    const rec = loadRecord(m.key);
+    let heroLine, levelCell, wonCls = '';
+    if(!rec){
+      heroLine = 'Nessuna partita';
+      levelCell = '<span class="rec-empty">—</span>';
+    } else {
+      const cls = rec.class ? CLASSES[rec.class] : null;
+      heroLine = cls ? cls.name : 'Eroe sconosciuto';
+      if(rec.won){ levelCell = '🏆'; wonCls = ' won'; }
+      else levelCell = recordLevelMarkup(rec.rank);
+    }
+    return `<div class="rec-row">
+      <div class="rec-mode-cell"><div class="rec-mode">${m.name}</div><div class="rec-hero">${heroLine}</div></div>
+      <div class="rec-level${wonCls}">${levelCell}</div>
+    </div>`;
+  }).join('');
+
+  // --- Statistiche ---
+  const s = statsRoot();
+  const totalRuns = s.wins + s.deaths;
+  const noData = '<span class="rec-dim">—</span>';
+
+  // Eroe preferito: immagine + % di partite concluse con quell'eroe.
+  const topHero = topKey(s.byClass, Object.keys(CLASSES));
+  let heroBox;
+  if(topHero){
+    const c = CLASSES[topHero.key];
+    heroBox = { visual: tokenMarkup(c.icon, c.img ? `classes/${c.img}` : null),
+                main: `${Math.round(topHero.n/totalRuns*100)}%`, mainCls:'num', sub: c.name };
+  } else heroBox = { visual: '<span class="rec-dim">🗡️</span>', main: noData, mainCls:'num', sub:'' };
+
+  // Carta preferita: immagine (o emoji) + nome + quante volte è stata usata.
+  const topCard = topKey(s.cardUses, Object.keys(ITEM_CARDS));
+  let cardBox;
+  if(topCard){
+    const c = ITEM_CARDS[topCard.key];
+    cardBox = { visual: `<div class="cardpanel-icon">${cardIconMarkup(c.icon, c.img ? `cards/${c.img}` : null)}</div>`,
+                main: c.name, mainCls:'txt', sub: `usata ${topCard.n} ${topCard.n===1 ? 'volta' : 'volte'}` };
+  } else cardBox = { visual: '<span class="rec-dim">🃏</span>', main: noData, mainCls:'num', sub:'' };
+
+  // Modalità preferita: quella con più partite concluse.
+  const topMode = topKey(s.byMode, RECORD_MODES.map(m=>m.key));
+  let modeBox;
+  if(topMode){
+    const m = RECORD_MODES.find(x=>x.key===topMode.key);
+    modeBox = { visual: m.icon, main: m.name, mainCls:'txt', sub: `${topMode.n} ${topMode.n===1 ? 'partita' : 'partite'}` };
+  } else modeBox = { visual: '<span class="rec-dim">🎲</span>', main: noData, mainCls:'num', sub:'' };
+
+  // Livello medio: un unico valore su tutte le partite concluse (di qualsiasi
+  // modalità); i Boss valgono il livello del loro numero (3 Boss = 3).
+  const avg = totalRuns>0 ? (s.levelSum/totalRuns).toFixed(1).replace('.',',') : null;
+
+  const boxes = [
+    { lbl:'Eroe preferito',       ...heroBox },
+    { lbl:'Totale morti',         visual:'💀', main:String(s.deaths), mainCls:'num', sub:'' },
+    { lbl:'Carta preferita',      ...cardBox },
+    { lbl:'Livello medio',        visual:'📊', main: avg===null ? noData : avg, mainCls:'num', sub: totalRuns>0 ? `su ${totalRuns} ${totalRuns===1 ? 'partita' : 'partite'}` : '' },
+    { lbl:'Totale vittorie',      visual:'🏆', main:String(s.wins), mainCls:'num', sub:'' },
+    { lbl:'Modalità preferita',   ...modeBox },
+  ];
+  const boxesHtml = boxes.map(b=>`<div class="rec-stat">
+      <div class="lbl">${b.lbl}</div>
+      <div class="rec-stat-visual">${b.visual}</div>
+      <div class="rec-stat-main ${b.mainCls}">${b.main}</div>
+      <div class="rec-stat-sub">${b.sub}</div>
+    </div>`).join('');
+
+  body.innerHTML = `
+    <h2 class="rec-heading">Record</h2>
+    <div class="rec-table">
+      <div class="rec-row rec-head"><div>Modalità di gioco</div><div>Livello</div></div>
+      ${rows}
+    </div>
+    <h2 class="rec-heading">Statistiche</h2>
+    <div class="rec-stats">${boxesHtml}</div>`;
+}
+
+function showRecords(){
+  document.getElementById('splashScreen').classList.add('hidden');
+  const scr = document.getElementById('recordsScreen');
+  scr.classList.remove('hidden');
+  scr.scrollTop = 0;
+  renderRecords();
 }
 
 function showExpansionSelect(){
@@ -1990,6 +2177,7 @@ function showExpansionSelect(){
 
 function showSplash(){
   document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('recordsScreen').classList.add('hidden');
   document.getElementById('modalBg').classList.add('hidden');
   document.getElementById('splashScreen').classList.remove('hidden');
   renderSplash();
@@ -2060,6 +2248,8 @@ function showInstructions(){
 
 document.getElementById('newGameBtn').onclick = ()=>{ showClassSelect(); };
 document.getElementById('expansionsBtn').onclick = ()=>{ showExpansionSelect(); };
+document.getElementById('recordsBtn').onclick = ()=>{ showRecords(); };
+document.getElementById('recordsBackBtn').onclick = ()=>{ showSplash(); };
 document.getElementById('infoBtnSplash').onclick = ()=>{ showInstructions(); };
 document.getElementById('infoBtnGame').onclick = ()=>{ showInstructions(); };
 
@@ -2090,9 +2280,10 @@ document.getElementById('continueBtn2').onclick = ()=>{
 };
 
 document.getElementById('resetBtn').onclick = ()=>{
-  if(!confirm('Cancellare la partita in corso e tutti i record? L\'azione non è reversibile.')) return;
+  if(!confirm('Cancellare la partita in corso, tutti i record e tutte le statistiche? L\'azione non è reversibile.')) return;
   window.__ocdCache.save = null;
   window.__ocdCache.records = {};
+  window.__ocdCache.stats = {};
   window.OCDCloud && window.OCDCloud.persist();
   renderSplash();
 };

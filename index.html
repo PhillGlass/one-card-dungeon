@@ -86,7 +86,7 @@
     <button class="btn hidden" id="continueBtn2"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="m13 5 7 7-7 7"/></svg> Continua</button>
     <button class="btn secondary" id="newGameBtn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c0 4.2-1.1 6.3-3.1 8.3S3 14 3 14s3.8 1.5 5.9 3.6S12 21 12 21s0-4.2 2.1-6.4S21 12 21 12s-3.8-1.5-5.9-3.6S12 3 12 3z"/></svg> Nuova Partita</button>
     <button class="btn secondary" id="expansionsBtn">👑 Espansioni</button>
-    <div class="record-line hidden" id="recordBox"><span id="recordVal"></span></div>
+    <button class="btn ghost" id="recordsBtn">🏆 Record</button>
   </div>
   <div class="splash-bottom">
     <button class="btn ghost" id="resetBtn">Reset</button>
@@ -97,6 +97,16 @@
       <span class="ver">v 0.2</span>
     </div>
   </div>
+</div>
+
+<!-- ============ RECORDS SCREEN ============ -->
+<div class="card hidden" id="recordsScreen">
+  <header>
+    <button class="home-btn" id="recordsBackBtn" title="Indietro" aria-label="Indietro"><svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4"/><path d="m11 5-7 7 7 7"/></svg></button>
+    <div class="sub">One Card Dungeon</div>
+    <h1>🏆 Record</h1>
+  </header>
+  <div class="records-body" id="recordsBody"></div>
 </div>
 
 <div class="card hidden" id="gameScreen">

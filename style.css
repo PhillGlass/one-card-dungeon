@@ -322,7 +322,6 @@
      piena del contenitore (che si comprime), proporzioni mantenute, stesso
      drop-shadow dell'emoji che sostituisce. */
   .splash-hero-icon .token-img{ height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
-  .record-line{ text-align:center; font-family:'Cinzel',serif; font-size:.78rem; letter-spacing:.03em; color:var(--gold-bright); padding:2px 0; }
   /* ============================================================
      SCHERMATA HOME — ADATTAMENTO IN ALTEZZA
      ------------------------------------------------------------
@@ -447,3 +446,56 @@
 
 /* Bottone carta non giocabile ora nel pannello Carte */
 .btn.secondary.disabled{ opacity:.35; pointer-events:none; }
+
+/* ============================================================
+   SCHERMATA RECORD E STATISTICHE
+   ------------------------------------------------------------
+   Stesso schema di adattamento in altezza di Home e partita: colonna flex
+   alta al massimo quanto la viewport, con scorrimento interno come valvola
+   di sicurezza (su schermi bassi la lista scorre invece di sbordare).
+   ============================================================ */
+#recordsScreen{
+  display:flex; flex-direction:column;
+  max-height: calc(100vh - var(--vpad));
+  max-height: calc(100dvh - var(--vpad));
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+#recordsScreen > *{ flex:0 0 auto; }
+#recordsScreen .sub{ padding-top:4px; }
+.records-body{ display:flex; flex-direction:column; gap:12px; padding:14px 12px 6px; }
+.rec-heading{ font-family:'Cinzel',serif; font-size:.72rem; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-bright);
+  text-align:center; margin:4px 0 0; padding-bottom:6px; border-bottom:1px solid rgba(201,162,75,.3); }
+.rec-heading:first-child{ margin-top:0; }
+
+/* Tabella record: stessa estetica dei riquadri di gioco (fondo pietra, bordo
+   oro, testi Cinzel per le etichette e Garamond per il dettaglio). */
+.rec-table{ border:1px solid var(--gold); border-radius:10px; overflow:hidden; background:rgba(0,0,0,.25); }
+.rec-row{ display:grid; grid-template-columns:1fr 84px; align-items:stretch; }
+.rec-row + .rec-row{ border-top:1px solid #493c30; }
+.rec-head{ background:var(--stone-2); font-family:'Cinzel',serif; font-size:.54rem; letter-spacing:.08em; text-transform:uppercase; color:var(--parchment-dim); }
+.rec-head > div{ padding:6px 10px; }
+.rec-head > div:last-child{ text-align:center; }
+.rec-mode-cell{ padding:8px 10px; min-width:0; }
+.rec-mode{ font-family:'Cinzel',serif; font-size:.76rem; letter-spacing:.03em; color:var(--parchment); }
+.rec-hero{ font-size:.8rem; font-style:italic; color:var(--parchment-dim); margin-top:2px; }
+.rec-level{ display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:1px solid #493c30;
+  font-family:'Cinzel',serif; font-weight:700; font-size:1.3rem; line-height:1.1; color:var(--gold-bright); }
+.rec-level.won{ font-size:1.5rem; }
+.rec-level small{ font-size:.5rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ember); font-weight:500; margin-top:2px; }
+.rec-empty, .rec-dim{ color:var(--parchment-dim); opacity:.5; }
+
+/* Box statistiche: 3 per riga. Le righe della griglia si allungano in
+   altezza (align-items:stretch di default), quindi i tre box di una riga
+   restano sempre uguali anche se una didascalia va su due righe. */
+.rec-stats{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.rec-stat{ background:var(--stone-2); border:1px solid #493c30; border-radius:8px; padding:7px 4px 8px;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:3px; }
+.rec-stat .lbl{ font-family:'Cinzel',serif; font-size:.5rem; letter-spacing:.04em; text-transform:uppercase; color:var(--parchment-dim); }
+.rec-stat-visual{ height:52px; display:flex; align-items:center; justify-content:center; font-size:2rem; line-height:1; }
+.rec-stat-visual .token-img{ height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+.rec-stat-visual .token{ filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+.rec-stat-main{ font-family:'Cinzel',serif; color:var(--gold-bright); line-height:1.15; max-width:100%; overflow-wrap:anywhere; }
+.rec-stat-main.num{ font-size:1.15rem; font-weight:700; }
+.rec-stat-main.txt{ font-size:.6rem; letter-spacing:.03em; font-weight:500; }
+.rec-stat-sub{ font-size:.68rem; line-height:1.2; color:var(--parchment-dim); min-height:.8em; }
