@@ -255,7 +255,7 @@ const CLASSES = {
   necromancer: { name:"Negromante", icon:"🧛", img:"class_necromancer.png", expansion:"mguf_yn_returns",
     desc:"Una volta per Livello, durante l'Azione, puoi perdere 1 Salute per infliggere 1 danno (ignora la Difesa) a un nemico in Gittata e Linea di Vista." },
   cleric: { name:"Chierico", icon:"✨", img:"class_cleric.png", expansion:"mguf_yn_returns",
-    desc:"Ogni volta che i tre dadi Energia mostrano lo stesso valore, puoi aumentarli tutti di 2 (fino a un massimo di 6)." },
+    desc:"Ogni volta che i tre dadi Energia mostrano lo stesso valore, puoi aumentarli tutti di 2." },
   knight: { name:"Cavaliere", icon:"🐴", img:"class_knight.png", expansion:"mguf_yn_returns",
     desc:"Una volta per Livello, puoi assegnare due dei tre dadi Energia alla stessa caratteristica (sommandoli); il terzo dado va su un'altra caratteristica." },
   thief: { name:"Ladro", icon:"🗝️", img:"class_thief.png", expansion:"mguf_yn_returns",
@@ -967,7 +967,7 @@ async function barbarianReroll(){
 }
 
 // Chierico: se i tre dadi Energia mostrano lo stesso valore, li aumenta tutti
-// di 2 (tetto a 6). Utilizzabile ogni volta che la condizione si verifica
+// di 2. Utilizzabile ogni volta che la condizione si verifica
 // (non è "una volta per livello"), ma una sola volta per singolo tiro.
 function clericBoost(){
   if(state.class!=='cleric' || state.clericBoostUsed) return;
@@ -975,9 +975,9 @@ function clericBoost(){
   if(state.dice.length!==3) return;
   const [a,b,c] = state.dice.map(d=>d.value);
   if(!(a===b && b===c)) return;
-  state.dice.forEach(d=>{ d.value = Math.min(6, d.value+2); });
+  state.dice.forEach(d=>{ d.value = d.value+2; });
   state.clericBoostUsed = true;
-  log(`✨ Abilità Chierico: dadi in tris, aumentati di 2 (max 6). Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
+  log(`✨ Abilità Chierico: dadi in tris, aumentati di 2. Nuovo tiro: ${state.dice.map(d=>d.value).join(', ')}`);
   render();
 }
 
@@ -1777,7 +1777,7 @@ function renderDice(){
       b.onclick=barbarianReroll;
       assignRow.appendChild(b);
     }
-    // Chierico: tris di dadi uguali → +2 a tutti (max 6), prima di assegnare
+    // Chierico: tris di dadi uguali → +2 a tutti, prima di assegnare
     if(state.class==='cleric' && !state.clericBoostUsed && !state.dice.some(d=>d.target)){
       const [a,b2,c] = state.dice.map(d=>d.value);
       if(a===b2 && b2===c){
@@ -2233,7 +2233,7 @@ function showInstructions(){
 
       <p><b>Nuove Classi.</b></p>
       <p>🧛 <b>Negromante</b> — una volta per Livello, in Fase Azione, perdi 1 Salute per infliggere 1 danno ignorando la Difesa.</p>
-      <p>✨ <b>Chierico</b> — se i tre dadi Energia escono tutti uguali, li aumenti tutti di 2 (max 6).</p>
+      <p>✨ <b>Chierico</b> — se i tre dadi Energia escono tutti uguali, li aumenti tutti di 2.</p>
       <p>🐴 <b>Cavaliere</b> — una volta per Livello, puoi assegnare due dadi alla stessa caratteristica (sommandoli).</p>
       <p>🗝️ <b>Ladro</b> — una volta per Livello, +1 al valore di tutti i dadi lanciati, senza tetto massimo.</p>
 
